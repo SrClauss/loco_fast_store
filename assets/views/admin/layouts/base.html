@@ -31,11 +31,11 @@
   </style>
 </head>
 <body class="bg-gray-50">
-  <div x-data="{ sidebarOpen: $store.sidebar.open }" class="flex h-screen overflow-hidden">
+  <div x-data class="flex h-screen overflow-hidden">
     
     <!-- Sidebar -->
     <aside 
-      x-show="sidebarOpen"
+      x-show="$store.sidebar.open"
       x-transition:enter="transition ease-out duration-300"
       x-transition:enter-start="-translate-x-full"
       x-transition:enter-end="translate-x-0"

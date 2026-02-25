@@ -5,7 +5,6 @@ use crate::{
     },
 };
 use axum::{
-    response::Html,
     extract::{State, Path},
 };
 use loco_rs::{prelude::*, hash};
@@ -48,18 +47,6 @@ impl From<users::Model> for UserResponse {
 #[derive(Debug, Serialize)]
 pub struct ErrorResponse {
     pub error: String,
-}
-
-/// Exibe a página de gerenciamento de usuários (GET /admin/users)
-#[debug_handler]
-pub async fn show_users_page(
-    State(_ctx): State<AppContext>,
-) -> Result<Html<String>> {
-    // Renderiza o template HTML diretamente
-    let html = std::fs::read_to_string("assets/views/admin/users/list.html")
-        .map_err(|_| Error::InternalServerError)?;
-    
-    Ok(Html(html))
 }
 
 /// Lista todos os usuários (GET /api/admin/users)
@@ -261,9 +248,7 @@ pub async fn delete_user(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("admin/users")
-        .add("/", get(show_users_page))
-        .prefix("api/admin/core/users")
+        .prefix("/api/admin/core/users")
         .add("/list", get(list_users))
         .add("/", post(create_user))
         .add("/{id}", put(update_user))

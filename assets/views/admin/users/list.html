@@ -311,7 +311,7 @@ function usersManager() {
         }
       } catch (error) {
         console.error('Erro ao carregar usuários:', error);
-        this.$store.toasts.error('Erro ao carregar usuários');
+        toast.error('Erro ao carregar usuários');
       } finally {
         this.loading = false;
       }
@@ -363,7 +363,7 @@ function usersManager() {
         const data = await response.json();
 
         if (response.ok) {
-          this.$store.toasts.success(
+          toast.success(
             this.editingUser ? 'Usuário atualizado com sucesso' : 'Usuário criado com sucesso'
           );
           this.$store.modal.close();
@@ -380,7 +380,7 @@ function usersManager() {
 
     confirmDelete(user) {
       if (this.users.length === 1) {
-        this.$store.toasts.error('Não é possível excluir o único usuário do sistema');
+        toast.error('Não é possível excluir o único usuário do sistema');
         return;
       }
 
@@ -396,14 +396,14 @@ function usersManager() {
         });
 
         if (response.ok) {
-          this.$store.toasts.success('Usuário excluído com sucesso');
+          toast.success('Usuário excluído com sucesso');
           await this.loadUsers();
         } else {
           const data = await response.json();
-          this.$store.toasts.error(data.error || 'Erro ao excluir usuário');
+          toast.error(data.error || 'Erro ao excluir usuário');
         }
       } catch (error) {
-        this.$store.toasts.error('Erro de conexão. Tente novamente.');
+        toast.error('Erro de conexão. Tente novamente.');
       }
     },
 

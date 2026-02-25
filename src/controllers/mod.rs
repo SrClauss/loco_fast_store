@@ -9,6 +9,7 @@ pub mod stores;
 pub mod payments;
 pub mod setup;
 pub mod admin_users;
+pub mod admin_dashboard;
 
 // dashboard controller for main admin page
 pub mod dashboard;

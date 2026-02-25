@@ -171,10 +171,12 @@ document.addEventListener('alpine:init', () => {
   // Modal store
   Alpine.store('modal', {
     isOpen: false,
+    id: '',
     title: '',
     content: '',
     
-    open(title, content) {
+    open(id, title = '', content = '') {
+      this.id = id;
       this.title = title;
       this.content = content;
       this.isOpen = true;
@@ -182,6 +184,7 @@ document.addEventListener('alpine:init', () => {
     
     close() {
       this.isOpen = false;
+      this.id = '';
     }
   });
 });

@@ -22,6 +22,7 @@ use crate::{
     workers::lead_scoring::LeadScoringWorker,
 };
 use crate::controllers::dashboard; // import dashboard controller
+use crate::controllers::admin_dashboard; // import admin dashboard API controller
 
 pub struct App;
 #[async_trait]
@@ -62,6 +63,7 @@ impl Hooks for App {
             .add_route(controllers::auth::routes())
             .add_route(controllers::auth::api_routes())
             .add_route(dashboard::routes())
+            .add_route(admin_dashboard::routes())
             .add_route(controllers::admin_users::routes())
             .add_route(controllers::stores::routes())
             .add_route(controllers::products::routes())
