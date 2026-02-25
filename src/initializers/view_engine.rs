@@ -4,7 +4,7 @@ use fluent_templates::{ArcLoader, FluentLoader};
 use loco_rs::{
     app::{AppContext, Initializer},
     controller::views::{engines, ViewEngine},
-    Error, Result,
+    Result,
 };
 use tracing::info;
 

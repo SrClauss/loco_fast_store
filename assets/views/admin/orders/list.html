@@ -1,0 +1,333 @@
+{% extends "admin/layouts/base.html" %}
+
+{% block title %}Pedidos{% endblock %}
+{% block page_title %}Pedidos{% endblock %}
+
+{% block content %}
+<div x-data="ordersListData()" x-init="init()">
+  <!-- Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">Todos os Pedidos</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1" x-text="stats.total">0</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">Pendentes</p>
+        <p class="text-2xl font-bold text-yellow-600 mt-1" x-text="stats.pending">0</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">Processando</p>
+        <p class="text-2xl font-bold text-blue-600 mt-1" x-text="stats.processing">0</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">Entregues</p>
+        <p class="text-2xl font-bold text-green-600 mt-1" x-text="stats.delivered">0</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+      <div class="relative">
+        <input 
+          type="text" 
+          x-model="filters.search"
+          @input.debounce.300ms="fetchOrders()"
+          placeholder="Buscar pedidos..."
+          class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent w-80"
+        >
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+      </div>
+
+      <select x-model="filters.status" @change="fetchOrders()" class="border-gray-300 rounded-lg focus:ring-pink-500 focus:border-pink-500">
+        <option value="">Todos os status</option>
+        <option value="pending">Pendentes</option>
+        <option value="confirmed">Confirmados</option>
+        <option value="processing">Processando</option>
+        <option value="shipped">Enviados</option>
+        <option value="delivered">Entregues</option>
+        <option value="cancelled">Cancelados</option>
+      </select>
+
+      <select x-model="filters.paymentStatus" @change="fetchOrders()" class="border-gray-300 rounded-lg focus:ring-pink-500 focus:border-pink-500">
+        <option value="">Status de Pagamento</option>
+        <option value="pending">Pendente</option>
+        <option value="paid">Pago</option>
+        <option value="failed">Falhou</option>
+        <option value="refunded">Reembolsado</option>
+      </select>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button @click="exportOrders()" class="btn-secondary">
+        <i class="fas fa-download mr-2"></i>
+        Exportar
+      </button>
+    </div>
+  </div>
+
+  <!-- Orders list -->
+  <div class="card">
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="table-header">Pedido</th>
+            <th class="table-header">Cliente</th>
+            <th class="table-header">Data</th>
+            <th class="table-header">Status</th>
+            <th class="table-header">Pagamento</th>
+            <th class="table-header">Total</th>
+            <th class="table-header w-24"></th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <template x-if="loading">
+            <tr x-for="i in 10" :key="i">
+              <td class="table-cell" colspan="7">
+                <div class="skeleton h-16 w-full"></div>
+              </td>
+            </tr>
+          </template>
+
+          <template x-if="!loading && orders.length === 0">
+            <tr>
+              <td class="table-cell text-center py-12" colspan="7">
+                <i class="fas fa-shopping-bag text-gray-300 text-6xl mx-auto mb-4"></i>
+                <p class="text-gray-500">Nenhum pedido encontrado</p>
+              </td>
+            </tr>
+          </template>
+
+          <template x-for="order in orders" :key="order.id">
+            <tr class="hover:bg-gray-50 cursor-pointer" @click="viewOrder(order.id)">
+              <td class="table-cell">
+                <div>
+                  <p class="font-medium text-gray-900" x-text="'#' + order.id"></p>
+                  <p class="text-sm text-gray-500" x-text="order.itemCount + ' itens'"></p>
+                </div>
+              </td>
+              <td class="table-cell">
+                <div>
+                  <p class="font-medium text-gray-900" x-text="order.customerName"></p>
+                  <p class="text-sm text-gray-500" x-text="order.customerEmail"></p>
+                </div>
+              </td>
+              <td class="table-cell">
+                <div>
+                  <p class="text-gray-900" x-text="formatDate(order.createdAt)"></p>
+                  <p class="text-sm text-gray-500" x-text="formatTime(order.createdAt)"></p>
+                </div>
+              </td>
+              <td class="table-cell">
+                <span 
+                  class="badge"
+                  :class="{
+                    'badge-warning': order.status === 'pending',
+                    'badge-info': order.status === 'confirmed' || order.status === 'processing',
+                    'badge-success': order.status === 'delivered',
+                    'badge-error': order.status === 'cancelled'
+                  }"
+                  x-text="order.statusLabel"
+                ></span>
+              </td>
+              <td class="table-cell">
+                <span 
+                  class="badge"
+                  :class="{
+                    'badge-warning': order.paymentStatus === 'pending',
+                    'badge-success': order.paymentStatus === 'paid',
+                    'badge-error': order.paymentStatus === 'failed',
+                    'badge-info': order.paymentStatus === 'refunded'
+                  }"
+                  x-text="order.paymentStatusLabel"
+                ></span>
+              </td>
+              <td class="table-cell">
+                <p class="font-semibold text-gray-900" x-text="formatCurrency(order.total)"></p>
+              </td>
+              <td class="table-cell">
+                <div class="flex items-center gap-2">
+                  <button @click.stop="viewOrder(order.id)" class="p-1 text-gray-400 hover:text-pink-600">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button @click.stop="printOrder(order.id)" class="p-1 text-gray-400 hover:text-blue-600">
+                    <i class="fas fa-print"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+      <div class="text-sm text-gray-700">
+        Mostrando <span class="font-medium" x-text="pagination.from"></span> até 
+        <span class="font-medium" x-text="pagination.to"></span> de 
+        <span class="font-medium" x-text="pagination.total"></span> pedidos
+      </div>
+      <div class="flex gap-2">
+        <button 
+          @click="previousPage()"
+          :disabled="pagination.current === 1"
+          :class="pagination.current === 1 ? 'opacity-50 cursor-not-allowed' : ''"
+          class="btn-secondary btn-sm"
+        >
+          Anterior
+        </button>
+        <template x-for="page in paginationPages" :key="page">
+          <button 
+            @click="goToPage(page)"
+            :class="page === pagination.current ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
+            x-text="page"
+          ></button>
+        </template>
+        <button 
+          @click="nextPage()"
+          :disabled="pagination.current === pagination.last"
+          :class="pagination.current === pagination.last ? 'opacity-50 cursor-not-allowed' : ''"
+          class="btn-secondary btn-sm"
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function ordersListData() {
+  return {
+    orders: [],
+    loading: true,
+    stats: {
+      total: 0,
+      pending: 0,
+      processing: 0,
+      delivered: 0
+    },
+    filters: {
+      search: '',
+      status: '',
+      paymentStatus: ''
+    },
+    pagination: {
+      current: 1,
+      last: 1,
+      from: 0,
+      to: 0,
+      total: 0,
+      perPage: 20
+    },
+
+    async init() {
+      await this.fetchStats();
+      await this.fetchOrders();
+    },
+
+    async fetchStats() {
+      try {
+        const data = await api.get('/orders/stats');
+        this.stats = data;
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    },
+
+    async fetchOrders() {
+      this.loading = true;
+      try {
+        const params = new URLSearchParams({
+          page: this.pagination.current,
+          per_page: this.pagination.perPage,
+          ...this.filters
+        });
+
+        const data = await api.get(`/orders?${params}`);
+        this.orders = data.data || [];
+        this.pagination = {
+          current: data.current_page,
+          last: data.last_page,
+          from: data.from,
+          to: data.to,
+          total: data.total,
+          perPage: data.per_page
+        };
+      } catch (error) {
+        toast.error('Erro ao carregar pedidos');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    viewOrder(id) {
+      window.location.href = `/admin/orders/${id}`;
+    },
+
+    printOrder(id) {
+      window.open(`/admin/orders/${id}/print`, '_blank');
+    },
+
+    exportOrders() {
+      window.location.href = '/api/orders/export?' + new URLSearchParams(this.filters);
+    },
+
+    formatTime(date) {
+      return new Intl.DateTimeFormat('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(new Date(date));
+    },
+
+    goToPage(page) {
+      this.pagination.current = page;
+      this.fetchOrders();
+    },
+
+    previousPage() {
+      if (this.pagination.current > 1) {
+        this.pagination.current--;
+        this.fetchOrders();
+      }
+    },
+
+    nextPage() {
+      if (this.pagination.current < this.pagination.last) {
+        this.pagination.current++;
+        this.fetchOrders();
+      }
+    },
+
+    get paginationPages() {
+      const pages = [];
+      const maxPages = 5;
+      let start = Math.max(1, this.pagination.current - Math.floor(maxPages / 2));
+      let end = Math.min(this.pagination.last, start + maxPages - 1);
+      
+      if (end - start < maxPages - 1) {
+        start = Math.max(1, end - maxPages + 1);
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      return pages;
+    }
+  }
+}
+</script>
+{% endblock %}

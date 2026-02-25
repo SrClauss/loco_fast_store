@@ -1,0 +1,426 @@
+{% extends "admin/layouts/base.html" %}
+
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Analytics{% endblock %}
+
+{% block content %}
+<div x-data="analyticsData()" x-init="init()">
+  <!-- Period selector -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+      <button 
+        @click="setPeriod('today')"
+        :class="period === 'today' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
+      >
+        Hoje
+      </button>
+      <button 
+        @click="setPeriod('week')"
+        :class="period === 'week' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
+      >
+        Esta Semana
+      </button>
+      <button 
+        @click="setPeriod('month')"
+        :class="period === 'month' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
+      >
+        Este Mês
+      </button>
+      <button 
+        @click="setPeriod('year')"
+        :class="period === 'year' ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
+      >
+        Este Ano
+      </button>
+      <div class="h-6 w-px bg-gray-300"></div>
+      <button @click="showCustomRange = true" class="btn-secondary btn-sm">
+        Período Customizado
+      </button>
+    </div>
+
+    <button @click="exportReport()" class="btn-secondary">
+      <svg class="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      Exportar Relatório
+    </button>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-medium text-gray-600">Receita Total</p>
+          <span 
+            class="text-xs font-medium"
+            :class="metrics.revenue.change >= 0 ? 'text-green-600' : 'text-red-600'"
+            x-text="(metrics.revenue.change >= 0 ? '+' : '') + metrics.revenue.change + '%'"
+          ></span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900" x-text="formatCurrency(metrics.revenue.value)"></p>
+        <div class="mt-2 flex items-center gap-2">
+          <svg 
+            :class="metrics.revenue.change >= 0 ? 'text-green-600' : 'text-red-600'"
+            class="w-4 h-4" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              stroke-linecap="round" 
+              stroke-linejoin="round" 
+              stroke-width="2" 
+              :d="metrics.revenue.change >= 0 ? 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' : 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6'"
+            />
+          </svg>
+          <span class="text-xs text-gray-500">vs período anterior</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-medium text-gray-600">Pedidos</p>
+          <span 
+            class="text-xs font-medium"
+            :class="metrics.orders.change >= 0 ? 'text-green-600' : 'text-red-600'"
+            x-text="(metrics.orders.change >= 0 ? '+' : '') + metrics.orders.change + '%'"
+          ></span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900" x-text="metrics.orders.value"></p>
+        <div class="mt-2">
+          <span class="text-xs text-gray-500">Ticket médio: </span>
+          <span class="text-xs font-medium text-gray-900" x-text="formatCurrency(metrics.avgTicket)"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-medium text-gray-600">Taxa de Conversão</p>
+          <span 
+            class="text-xs font-medium"
+            :class="metrics.conversion.change >= 0 ? 'text-green-600' : 'text-red-600'"
+            x-text="(metrics.conversion.change >= 0 ? '+' : '') + metrics.conversion.change + '%'"
+          ></span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900" x-text="metrics.conversion.value + '%'"></p>
+        <div class="mt-2">
+          <span class="text-xs text-gray-500" x-text="metrics.visits + ' visitantes'"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-sm font-medium text-gray-600">Novos Clientes</p>
+          <span 
+            class="text-xs font-medium"
+            :class="metrics.newCustomers.change >= 0 ? 'text-green-600' : 'text-red-600'"
+            x-text="(metrics.newCustomers.change >= 0 ? '+' : '') + metrics.newCustomers.change + '%'"
+          ></span>
+        </div>
+        <p class="text-2xl font-bold text-gray-900" x-text="metrics.newCustomers.value"></p>
+        <div class="mt-2">
+          <span class="text-xs text-gray-500">CAC: </span>
+          <span class="text-xs font-medium text-gray-900" x-text="formatCurrency(metrics.cac)"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    <!-- Revenue trend -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Receita ao Longo do Tempo</h3>
+      </div>
+      <div class="card-body">
+        <canvas id="revenueChart" style="height: 300px;"></canvas>
+      </div>
+    </div>
+
+    <!-- Orders by status -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Pedidos por Status</h3>
+      </div>
+      <div class="card-body">
+        <canvas id="ordersStatusChart" style="height: 300px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Top products -->
+    <div class="lg:col-span-2 card">
+      <div class="card-header flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Produtos Mais Vendidos</h3>
+        <a href="/admin/products" class="text-sm text-pink-600 hover:text-pink-700 font-medium">Ver todos</a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table">
+          <thead class="bg-gray-50">
+            <tr>
+              <th class="table-header">Produto</th>
+              <th class="table-header">Vendas</th>
+              <th class="table-header">Receita</th>
+              <th class="table-header">Conversão</th>
+            </tr>
+          </thead>
+          <tbody class="bg-white divide-y divide-gray-200">
+            <template x-for="product in topProducts" :key="product.id">
+              <tr>
+                <td class="table-cell">
+                  <div class="flex items-center gap-3">
+                    <img 
+                      :src="product.image || '/static/images/placeholder.png'" 
+                      :alt="product.name"
+                      class="w-10 h-10 rounded-lg object-cover"
+                    >
+                    <div>
+                      <p class="font-medium text-gray-900" x-text="product.name"></p>
+                      <p class="text-sm text-gray-500" x-text="product.sku"></p>
+                    </div>
+                  </div>
+                </td>
+                <td class="table-cell">
+                  <p class="font-medium text-gray-900" x-text="product.sales"></p>
+                </td>
+                <td class="table-cell">
+                  <p class="font-semibold text-gray-900" x-text="formatCurrency(product.revenue)"></p>
+                </td>
+                <td class="table-cell">
+                  <p class="text-gray-900" x-text="product.conversion + '%'"></p>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Traffic sources -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Fontes de Tráfego</h3>
+      </div>
+      <div class="card-body">
+        <canvas id="trafficChart" style="height: 250px;"></canvas>
+        <div class="mt-4 space-y-3">
+          <template x-for="source in trafficSources" :key="source.name">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div 
+                  class="w-3 h-3 rounded-full"
+                  :style="'background-color: ' + source.color"
+                ></div>
+                <span class="text-sm text-gray-700" x-text="source.name"></span>
+              </div>
+              <div class="text-right">
+                <p class="text-sm font-medium text-gray-900" x-text="source.visits"></p>
+                <p class="text-xs text-gray-500" x-text="source.percentage + '%'"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Geographic distribution -->
+  <div class="card">
+    <div class="card-header">
+      <h3 class="text-lg font-semibold text-gray-900">Distribuição Geográfica</h3>
+    </div>
+    <div class="card-body">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <template x-for="region in topRegions" :key="region.name">
+          <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+            <div>
+              <p class="font-medium text-gray-900" x-text="region.name"></p>
+              <p class="text-sm text-gray-500" x-text="region.orders + ' pedidos'"></p>
+            </div>
+            <div class="text-right">
+              <p class="text-lg font-bold text-gray-900" x-text="formatCurrency(region.revenue)"></p>
+              <p class="text-xs text-gray-500" x-text="region.percentage + '%'"></p>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+function analyticsData() {
+  return {
+    period: 'month',
+    showCustomRange: false,
+    loading: true,
+    metrics: {
+      revenue: { value: 0, change: 0 },
+      orders: { value: 0, change: 0 },
+      conversion: { value: 0, change: 0 },
+      newCustomers: { value: 0, change: 0 },
+      avgTicket: 0,
+      visits: 0,
+      cac: 0
+    },
+    topProducts: [],
+    trafficSources: [],
+    topRegions: [],
+    charts: {
+      revenue: null,
+      ordersStatus: null,
+      traffic: null
+    },
+
+    async init() {
+      await this.fetchData();
+      this.initCharts();
+    },
+
+    async fetchData() {
+      this.loading = true;
+      try {
+        const data = await api.get(`/analytics/overview?period=${this.period}`);
+        this.metrics = data.metrics;
+        this.topProducts = data.topProducts || [];
+        this.trafficSources = data.trafficSources || [];
+        this.topRegions = data.topRegions || [];
+      } catch (error) {
+        toast.error('Erro ao carregar analytics');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    setPeriod(newPeriod) {
+      this.period = newPeriod;
+      this.fetchData();
+      this.updateCharts();
+    },
+
+    initCharts() {
+      // Revenue chart
+      const revenueCtx = document.getElementById('revenueChart');
+      if (revenueCtx) {
+        this.charts.revenue = new Chart(revenueCtx, {
+          type: 'line',
+          data: {
+            labels: this.generateDateLabels(),
+            datasets: [{
+              label: 'Receita',
+              data: this.generateRandomData(30, 5000, 15000),
+              borderColor: 'rgb(236, 72, 153)',
+              backgroundColor: 'rgba(236, 72, 153, 0.1)',
+              tension: 0.4,
+              fill: true
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+
+      // Orders status chart
+      const ordersStatusCtx = document.getElementById('ordersStatusChart');
+      if (ordersStatusCtx) {
+        this.charts.ordersStatus = new Chart(ordersStatusCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Entregues', 'Processando', 'Pendentes', 'Cancelados'],
+            datasets: [{
+              data: [65, 20, 10, 5],
+              backgroundColor: [
+                'rgb(34, 197, 94)',
+                'rgb(59, 130, 246)',
+                'rgb(251, 191, 36)',
+                'rgb(239, 68, 68)'
+              ]
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { position: 'bottom' }
+            }
+          }
+        });
+      }
+
+      // Traffic chart
+      const trafficCtx = document.getElementById('trafficChart');
+      if (trafficCtx) {
+        this.charts.traffic = new Chart(trafficCtx, {
+          type: 'pie',
+          data: {
+            labels: ['Orgânico', 'Direto', 'Social', 'Referral', 'Pago'],
+            datasets: [{
+              data: [40, 25, 15, 12, 8],
+              backgroundColor: [
+                'rgb(236, 72, 153)',
+                'rgb(59, 130, 246)',
+                'rgb(34, 197, 94)',
+                'rgb(251, 191, 36)',
+                'rgb(168, 85, 247)'
+              ]
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            }
+          }
+        });
+      }
+    },
+
+    updateCharts() {
+      // Atualizar dados dos charts quando mudar período
+      if (this.charts.revenue) {
+        this.charts.revenue.data.labels = this.generateDateLabels();
+        this.charts.revenue.data.datasets[0].data = this.generateRandomData(30, 5000, 15000);
+        this.charts.revenue.update();
+      }
+    },
+
+    generateDateLabels() {
+      const labels = [];
+      const days = this.period === 'week' ? 7 : this.period === 'month' ? 30 : 365;
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        labels.push(d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }));
+      }
+      return labels;
+    },
+
+    generateRandomData(count, min, max) {
+      return Array.from({ length: count }, () => 
+        Math.floor(Math.random() * (max - min + 1)) + min
+      );
+    },
+
+    exportReport() {
+      window.location.href = `/api/analytics/export?period=${this.period}`;
+    }
+  }
+}
+</script>
+{% endblock %}

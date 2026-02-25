@@ -1,0 +1,323 @@
+{% extends "admin/layouts/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div x-data="dashboardData()" x-init="init()">
+  <!-- Stats cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+    <!-- Revenue -->
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Receita Total</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1" x-text="formatCurrency(stats.revenue)">R$ 0,00</p>
+            <p class="text-xs text-green-600 mt-1 flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span x-text="stats.revenueGrowth">+0%</span> vs mês passado
+            </p>
+          </div>
+          <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-500 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Orders -->
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Pedidos</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1" x-text="stats.orders">0</p>
+            <p class="text-xs text-blue-600 mt-1 flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span x-text="stats.ordersGrowth">+0%</span> vs mês passado
+            </p>
+          </div>
+          <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Customers -->
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Clientes</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1" x-text="stats.customers">0</p>
+            <p class="text-xs text-purple-600 mt-1 flex items-center gap-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span x-text="stats.customersGrowth">+0%</span> vs mês passado
+            </p>
+          </div>
+          <div class="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-500 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Products -->
+    <div class="card">
+      <div class="card-body">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-gray-600">Produtos</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1" x-text="stats.products">0</p>
+            <p class="text-xs text-orange-600 mt-1">
+              <span x-text="stats.activeProducts">0</span> ativos
+            </p>
+          </div>
+          <div class="w-12 h-12 bg-gradient-to-br from-orange-400 to-orange-500 rounded-lg flex items-center justify-center">
+            <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+    <!-- Revenue chart -->
+    <div class="lg:col-span-2 card">
+      <div class="card-header flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Receita dos Últimos 30 Dias</h3>
+        <select class="text-sm border-gray-300 rounded-lg focus:ring-pink-500 focus:border-pink-500">
+          <option>Últimos 7 dias</option>
+          <option selected>Últimos 30 dias</option>
+          <option>Últimos 90 dias</option>
+        </select>
+      </div>
+      <div class="card-body">
+        <canvas id="revenueChart" class="w-full" style="height: 300px;"></canvas>
+      </div>
+    </div>
+
+    <!-- Recent orders -->
+    <div class="card">
+      <div class="card-header flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Pedidos Recentes</h3>
+        <a href="/admin/orders" class="text-sm text-pink-600 hover:text-pink-700 font-medium">Ver todos</a>
+      </div>
+      <div class="divide-y divide-gray-200">
+        <template x-for="order in recentOrders" :key="order.id">
+          <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer">
+            <div class="flex items-center justify-between mb-2">
+              <p class="text-sm font-medium text-gray-900" x-text="'#' + order.id"></p>
+              <span 
+                class="badge"
+                :class="{
+                  'badge-success': order.status === 'delivered',
+                  'badge-warning': order.status === 'processing',
+                  'badge-info': order.status === 'pending'
+                }"
+                x-text="order.statusLabel"
+              ></span>
+            </div>
+            <p class="text-sm text-gray-600 mb-1" x-text="order.customerName"></p>
+            <div class="flex items-center justify-between">
+              <p class="text-sm font-semibold text-gray-900" x-text="formatCurrency(order.total)"></p>
+              <p class="text-xs text-gray-500" x-text="formatDate(order.createdAt)"></p>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Top products -->
+    <div class="card">
+      <div class="card-header flex items-center justify-between">
+        <h3 class="text-lg font-semibold text-gray-900">Produtos Mais Vendidos</h3>
+        <a href="/admin/products" class="text-sm text-pink-600 hover:text-pink-700 font-medium">Ver todos</a>
+      </div>
+      <div class="divide-y divide-gray-200">
+        <template x-for="product in topProducts" :key="product.id">
+          <div class="px-6 py-4 hover:bg-gray-50 cursor-pointer">
+            <div class="flex items-center gap-4">
+              <img 
+                :src="product.image || '/static/images/placeholder.png'" 
+                :alt="product.name"
+                class="w-12 h-12 rounded-lg object-cover"
+              >
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-900 truncate" x-text="product.name"></p>
+                <p class="text-sm text-gray-600" x-text="product.sales + ' vendas'"></p>
+              </div>
+              <p class="text-sm font-semibold text-gray-900" x-text="formatCurrency(product.revenue)"></p>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Activity feed -->
+    <div class="card">
+      <div class="card-header">
+        <h3 class="text-lg font-semibold text-gray-900">Atividades Recentes</h3>
+      </div>
+      <div class="px-6 py-4">
+        <div class="space-y-4">
+          <template x-for="activity in activities" :key="activity.id">
+            <div class="flex gap-3">
+              <div 
+                class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+                :class="{
+                  'bg-green-100 text-green-600': activity.type === 'order',
+                  'bg-blue-100 text-blue-600': activity.type === 'customer',
+                  'bg-purple-100 text-purple-600': activity.type === 'product'
+                }"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <div class="flex-1">
+                <p class="text-sm text-gray-900" x-text="activity.message"></p>
+                <p class="text-xs text-gray-500 mt-1" x-text="activity.time"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+function dashboardData() {
+  return {
+    loading: true,
+    stats: {
+      revenue: 0,
+      revenueGrowth: '+0%',
+      orders: 0,
+      ordersGrowth: '+0%',
+      customers: 0,
+      customersGrowth: '+0%',
+      products: 0,
+      activeProducts: 0
+    },
+    recentOrders: [],
+    topProducts: [],
+    activities: [],
+    chart: null,
+
+    async init() {
+      await this.fetchStats();
+      await this.fetchRecentOrders();
+      await this.fetchTopProducts();
+      await this.fetchActivities();
+      this.initChart();
+      this.loading = false;
+    },
+
+    async fetchStats() {
+      try {
+        const data = await api.get('/analytics/dashboard-stats');
+        this.stats = data;
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    },
+
+    async fetchRecentOrders() {
+      try {
+        const data = await api.get('/orders?limit=5&sort=-created_at');
+        this.recentOrders = data.data || [];
+      } catch (error) {
+        console.error('Error fetching recent orders:', error);
+      }
+    },
+
+    async fetchTopProducts() {
+      try {
+        const data = await api.get('/analytics/top-products?limit=5');
+        this.topProducts = data;
+      } catch (error) {
+        console.error('Error fetching top products:', error);
+      }
+    },
+
+    async fetchActivities() {
+      try {
+        const data = await api.get('/analytics/activities?limit=10');
+        this.activities = data;
+      } catch (error) {
+        console.error('Error fetching activities:', error);
+      }
+    },
+
+    initChart() {
+      const ctx = document.getElementById('revenueChart');
+      if (!ctx) return;
+
+      this.chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: Array.from({ length: 30 }, (_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - (29 - i));
+            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+          }),
+          datasets: [{
+            label: 'Receita',
+            data: Array.from({ length: 30 }, () => Math.floor(Math.random() * 10000) + 5000),
+            borderColor: 'rgb(236, 72, 153)',
+            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+            tension: 0.4,
+            fill: true
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              callbacks: {
+                label: (context) => 'R$ ' + (context.parsed.y / 100).toFixed(2)
+              }
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => 'R$ ' + (value / 100).toFixed(0)
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+}
+</script>
+{% endblock %}

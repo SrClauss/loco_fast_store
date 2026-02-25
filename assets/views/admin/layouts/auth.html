@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Auth{% endblock %} - Loco Fast Store</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="/static/css/output.css">
+  
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div class="min-h-screen flex">
+    <!-- Left side - Branding -->
+    <div class="hidden lg:flex lg:flex-1 bg-gradient-to-br from-pink-500 via-rose-500 to-orange-500 p-12 flex-col justify-between">
+      <div>
+        <div class="flex items-center gap-3 text-white">
+          <div class="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center">
+            <i class="fas fa-bolt text-2xl"></i>
+          </div>
+          <span class="font-bold text-2xl">Loco Fast Store</span>
+        </div>
+      </div>
+
+      <div class="text-white space-y-6">
+        <h1 class="text-4xl font-bold leading-tight">
+          Gerencie sua loja<br>
+          de forma simples<br>
+          e eficiente
+        </h1>
+        <p class="text-white/80 text-lg">
+          Plataforma completa de e-commerce com gestão de produtos, pedidos, clientes e muito mais.
+        </p>
+
+        <div class="pt-8 space-y-4">
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+              <i class="fas fa-check text-sm"></i>
+            </div>
+            <div>
+              <h3 class="font-medium">Gestão Completa</h3>
+              <p class="text-white/70 text-sm">Controle total sobre produtos, categorias e coleções</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+              <i class="fas fa-check text-sm"></i>
+            </div>
+            <div>
+              <h3 class="font-medium">Analytics em Tempo Real</h3>
+              <p class="text-white/70 text-sm">Acompanhe métricas e tome decisões baseadas em dados</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3">
+            <div class="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+              <i class="fas fa-check text-sm"></i>
+            </div>
+            <div>
+              <h3 class="font-medium">Multi-loja</h3>
+              <p class="text-white/70 text-sm">Gerencie múltiplas lojas a partir de um único painel</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="text-white/60 text-sm">
+        © 2024 Loco Fast Store. Todos os direitos reservados.
+      </div>
+    </div>
+
+    <!-- Right side - Form -->
+    <div class="flex-1 flex items-center justify-center p-8">
+      <div class="w-full max-w-md">
+        <!-- Mobile logo -->
+        <div class="lg:hidden mb-8 flex justify-center">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg flex items-center justify-center">
+              <i class="fas fa-bolt text-white text-xl"></i>
+            </div>
+            <span class="font-bold text-xl">Loco Store</span>
+          </div>
+        </div>
+
+        {% block auth_content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

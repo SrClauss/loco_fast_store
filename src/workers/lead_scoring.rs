@@ -1,6 +1,8 @@
 use loco_rs::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::env;
+
 use crate::services::analytics::AnalyticsService;
 
 pub struct LeadScoringWorker {
@@ -20,6 +22,7 @@ impl BackgroundWorker<LeadScoringWorkerArgs> for LeadScoringWorker {
     }
 
     async fn perform(&self, args: LeadScoringWorkerArgs) -> Result<()> {
+        env::load();
         let redis_url =
             std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1".to_string());
         let sled_path =

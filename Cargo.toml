@@ -37,6 +37,8 @@ uuid = { version = "1.6", features = ["v4"] }
 include_dir = { version = "0.7" }
 # view engine i18n
 fluent-templates = { version = "0.13", features = ["tera"] }
+
+once_cell = "1.20"
 unic-langid = { version = "0.9" }
 # /view engine
 axum-extra = { version = "0.10", features = ["form"] }
@@ -47,6 +49,9 @@ sled = { version = "0.34" }
 rust-s3 = { version = "0.35", features = ["tokio-rustls-tls"], default-features = false }
 tower = { version = "0.5" }
 tower-http = { version = "0.6", features = ["cors"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+
+dotenvy = "0.15"
 
 [[bin]]
 name = "loco_fast_store-cli"

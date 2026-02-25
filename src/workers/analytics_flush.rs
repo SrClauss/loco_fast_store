@@ -1,4 +1,5 @@
 use loco_rs::prelude::*;
+
 use serde::{Deserialize, Serialize};
 
 use crate::services::analytics::AnalyticsService;

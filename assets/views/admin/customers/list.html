@@ -1,0 +1,306 @@
+{% extends "admin/layouts/base.html" %}
+
+{% block title %}Clientes{% endblock %}
+{% block page_title %}Clientes{% endblock %}
+
+{% block content %}
+<div x-data="customersData()" x-init="init()">
+  <!-- Stats -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">Total de Clientes</p>
+        <p class="text-2xl font-bold text-gray-900 mt-1" x-text="stats.total">0</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">Novos (30 dias)</p>
+        <p class="text-2xl font-bold text-green-600 mt-1" x-text="stats.new">0</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">Ativos</p>
+        <p class="text-2xl font-bold text-blue-600 mt-1" x-text="stats.active">0</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-body">
+        <p class="text-sm text-gray-600">LTV Médio</p>
+        <p class="text-2xl font-bold text-purple-600 mt-1" x-text="formatCurrency(stats.avgLtv)">R$ 0,00</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+      <div class="relative">
+        <input 
+          type="text" 
+          x-model="filters.search"
+          @input.debounce.300ms="fetchCustomers()"
+          placeholder="Buscar clientes..."
+          class="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent w-80"
+        >
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+      </div>
+
+      <select x-model="filters.segment" @change="fetchCustomers()" class="border-gray-300 rounded-lg focus:ring-pink-500 focus:border-pink-500">
+        <option value="">Todos segmentos</option>
+        <option value="vip">VIP</option>
+        <option value="regular">Regular</option>
+        <option value="new">Novos</option>
+        <option value="inactive">Inativos</option>
+      </select>
+    </div>
+
+    <button @click="exportCustomers()" class="btn-secondary">
+      <i class="fas fa-download mr-2"></i>
+      Exportar
+    </button>
+  </div>
+
+  <!-- Customers table -->
+  <div class="card">
+    <div class="overflow-x-auto">
+      <table class="table">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="table-header">Cliente</th>
+            <th class="table-header">Email/Telefone</th>
+            <th class="table-header">Pedidos</th>
+            <th class="table-header">Total Gasto</th>
+            <th class="table-header">Última Compra</th>
+            <th class="table-header">Segmento</th>
+            <th class="table-header w-24"></th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <template x-if="loading">
+            <tr x-for="i in 10" :key="i">
+              <td class="table-cell" colspan="7">
+                <div class="skeleton h-16 w-full"></div>
+              </td>
+            </tr>
+          </template>
+
+          <template x-if="!loading && customers.length === 0">
+            <tr>
+              <td class="table-cell text-center py-12" colspan="7">
+                <i class="fas fa-users text-gray-300 text-6xl mx-auto mb-4"></i>
+                <p class="text-gray-500">Nenhum cliente encontrado</p>
+              </td>
+            </tr>
+          </template>
+
+          <template x-for="customer in customers" :key="customer.id">
+            <tr class="hover:bg-gray-50 cursor-pointer" @click="viewCustomer(customer.id)">
+              <td class="table-cell">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-full flex items-center justify-center text-white font-medium">
+                    <span x-text="customer.initials"></span>
+                  </div>
+                  <div>
+                    <p class="font-medium text-gray-900" x-text="customer.name"></p>
+                    <p class="text-sm text-gray-500" x-text="'Cliente desde ' + formatDate(customer.createdAt)"></p>
+                  </div>
+                </div>
+              </td>
+              <td class="table-cell">
+                <div>
+                  <p class="text-gray-900" x-text="customer.email"></p>
+                  <p class="text-sm text-gray-500" x-text="customer.phone"></p>
+                </div>
+              </td>
+              <td class="table-cell">
+                <p class="font-medium text-gray-900" x-text="customer.orderCount"></p>
+              </td>
+              <td class="table-cell">
+                <p class="font-semibold text-gray-900" x-text="formatCurrency(customer.totalSpent)"></p>
+              </td>
+              <td class="table-cell">
+                <span x-text="customer.lastOrderAt ? formatDate(customer.lastOrderAt) : 'Nunca'"></span>
+              </td>
+              <td class="table-cell">
+                <span 
+                  class="badge"
+                  :class="{
+                    'bg-purple-100 text-purple-800': customer.segment === 'vip',
+                    'bg-blue-100 text-blue-800': customer.segment === 'regular',
+                    'bg-green-100 text-green-800': customer.segment === 'new',
+                    'bg-gray-100 text-gray-800': customer.segment === 'inactive'
+                  }"
+                  x-text="customer.segmentLabel"
+                ></span>
+              </td>
+              <td class="table-cell">
+                <div class="flex items-center gap-2">
+                  <button @click.stop="viewCustomer(customer.id)" class="p-1 text-gray-400 hover:text-pink-600">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                  <button @click.stop="sendEmail(customer)" class="p-1 text-gray-400 hover:text-blue-600">
+                    <i class="fas fa-envelope"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    <div class="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+      <div class="text-sm text-gray-700">
+        Mostrando <span class="font-medium" x-text="pagination.from"></span> até 
+        <span class="font-medium" x-text="pagination.to"></span> de 
+        <span class="font-medium" x-text="pagination.total"></span> clientes
+      </div>
+      <div class="flex gap-2">
+        <button 
+          @click="previousPage()"
+          :disabled="pagination.current === 1"
+          :class="pagination.current === 1 ? 'opacity-50 cursor-not-allowed' : ''"
+          class="btn-secondary btn-sm"
+        >
+          Anterior
+        </button>
+        <template x-for="page in paginationPages" :key="page">
+          <button 
+            @click="goToPage(page)"
+            :class="page === pagination.current ? 'btn-primary btn-sm' : 'btn-secondary btn-sm'"
+            x-text="page"
+          ></button>
+        </template>
+        <button 
+          @click="nextPage()"
+          :disabled="pagination.current === pagination.last"
+          :class="pagination.current === pagination.last ? 'opacity-50 cursor-not-allowed' : ''"
+          class="btn-secondary btn-sm"
+        >
+          Próxima
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function customersData() {
+  return {
+    customers: [],
+    loading: true,
+    stats: {
+      total: 0,
+      new: 0,
+      active: 0,
+      avgLtv: 0
+    },
+    filters: {
+      search: '',
+      segment: ''
+    },
+    pagination: {
+      current: 1,
+      last: 1,
+      from: 0,
+      to: 0,
+      total: 0,
+      perPage: 20
+    },
+
+    async init() {
+      await this.fetchStats();
+      await this.fetchCustomers();
+    },
+
+    async fetchStats() {
+      try {
+        const data = await api.get('/customers/stats');
+        this.stats = data;
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      }
+    },
+
+    async fetchCustomers() {
+      this.loading = true;
+      try {
+        const params = new URLSearchParams({
+          page: this.pagination.current,
+          per_page: this.pagination.perPage,
+          ...this.filters
+        });
+
+        const data = await api.get(`/customers?${params}`);
+        this.customers = data.data || [];
+        this.pagination = {
+          current: data.current_page,
+          last: data.last_page,
+          from: data.from,
+          to: data.to,
+          total: data.total,
+          perPage: data.per_page
+        };
+      } catch (error) {
+        toast.error('Erro ao carregar clientes');
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    viewCustomer(id) {
+      window.location.href = `/admin/customers/${id}`;
+    },
+
+    sendEmail(customer) {
+      window.location.href = `mailto:${customer.email}`;
+    },
+
+    exportCustomers() {
+      window.location.href = '/api/customers/export?' + new URLSearchParams(this.filters);
+    },
+
+    goToPage(page) {
+      this.pagination.current = page;
+      this.fetchCustomers();
+    },
+
+    previousPage() {
+      if (this.pagination.current > 1) {
+        this.pagination.current--;
+        this.fetchCustomers();
+      }
+    },
+
+    nextPage() {
+      if (this.pagination.current < this.pagination.last) {
+        this.pagination.current++;
+        this.fetchCustomers();
+      }
+    },
+
+    get paginationPages() {
+      const pages = [];
+      const maxPages = 5;
+      let start = Math.max(1, this.pagination.current - Math.floor(maxPages / 2));
+      let end = Math.min(this.pagination.last, start + maxPages - 1);
+      
+      if (end - start < maxPages - 1) {
+        start = Math.max(1, end - maxPages + 1);
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      return pages;
+    }
+  }
+}
+</script>
+{% endblock %}

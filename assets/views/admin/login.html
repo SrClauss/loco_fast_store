@@ -1,0 +1,137 @@
+{% extends "admin/layouts/auth.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block auth_content %}
+<div x-data="loginForm()" class="space-y-6">
+  <div class="text-center">
+    <h2 class="text-3xl font-bold text-gray-900">Bem-vindo de volta</h2>
+    <p class="mt-2 text-gray-600">Faça login para acessar o painel administrativo</p>
+  </div>
+
+  <form @submit.prevent="submit" class="space-y-4">
+    <!-- Email -->
+    <div>
+      <label for="email" class="form-label">Email</label>
+      <input 
+        type="email" 
+        id="email" 
+        x-model="form.email"
+        class="form-input"
+        placeholder="seu@email.com"
+        required
+      >
+      <p x-show="errors.email" x-text="errors.email" class="form-error"></p>
+    </div>
+
+    <!-- Password -->
+    <div>
+      <label for="password" class="form-label">Senha</label>
+      <div class="relative">
+        <input 
+          :type="showPassword ? 'text' : 'password'"
+          id="password" 
+          x-model="form.password"
+          class="form-input pr-10"
+          placeholder="••••••••"
+          required
+        >
+        <button 
+          type="button"
+          @click="showPassword = !showPassword"
+          class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+        >
+          <i x-show="!showPassword" class="fas fa-eye"></i>
+          <i x-show="showPassword" x-cloak class="fas fa-eye-slash"></i>
+        </button>
+      </div>
+      <p x-show="errors.password" x-text="errors.password" class="form-error"></p>
+    </div>
+
+    <!-- Remember & Forgot -->
+    <div class="flex items-center justify-between">
+      <label class="flex items-center gap-2">
+        <input type="checkbox" x-model="form.remember" class="w-4 h-4 text-pink-600 border-gray-300 rounded focus:ring-pink-500">
+        <span class="text-sm text-gray-600">Lembrar de mim</span>
+      </label>
+      <a href="/admin/forgot-password" class="text-sm text-pink-600 hover:text-pink-700 font-medium">
+        Esqueceu a senha?
+      </a>
+    </div>
+
+    <!-- Submit button -->
+    <button 
+      type="submit" 
+      :disabled="loading"
+      :class="loading ? 'opacity-50 cursor-not-allowed' : ''"
+      class="w-full btn-primary py-3 text-base"
+    >
+      <span x-show="!loading">Entrar</span>
+      <span x-show="loading" x-cloak class="flex items-center justify-center gap-2">
+        <i class="fas fa-spinner fa-spin"></i>
+        Entrando...
+      </span>
+    </button>
+  </form>
+
+  <!-- Divider -->
+  <div class="relative">
+    <div class="absolute inset-0 flex items-center">
+      <div class="w-full border-t border-gray-300"></div>
+    </div>
+    <div class="relative flex justify-center text-sm">
+      <span class="px-2 bg-gray-50 text-gray-500">Não tem uma conta?</span>
+    </div>
+  </div>
+
+  <!-- Register link -->
+  <div class="text-center">
+    <a href="/admin/register" class="text-pink-600 hover:text-pink-700 font-medium">
+      Criar nova conta
+    </a>
+  </div>
+</div>
+
+<script>
+function loginForm() {
+  return {
+    form: {
+      email: '',
+      password: '',
+      remember: false
+    },
+    errors: {},
+    loading: false,
+    showPassword: false,
+
+    async submit() {
+      this.errors = {};
+      this.loading = true;
+
+      try {
+        const response = await api.post('/auth/login', {
+          email: this.form.email,
+          password: this.form.password
+        });
+
+        localStorage.setItem('auth_token', response.token);
+        
+        toast.success('Login realizado com sucesso!');
+        
+        setTimeout(() => {
+          window.location.href = '/admin/dashboard';
+        }, 500);
+      } catch (error) {
+        toast.error(error.message || 'Erro ao fazer login');
+        
+        this.errors = {
+          email: 'Email ou senha inválidos'
+        };
+      } finally {
+        this.loading = false;
+      }
+    }
+  }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "admin/layouts/base.html" %}
+
+{% block title %}Formulário de Produto{% endblock %}
+
+{% block content %}
+<div x-data="productFormData()" x-init="init()" class="space-y-6">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-gray-900">Novo Produto</h1>
+    <button type="button" onclick="window.history.back()" class="btn btn-secondary">
+      <i class="fas fa-arrow-left mr-2"></i>
+      Voltar
+    </button>
+  </div>
+
+  <form @submit.prevent="submit" class="space-y-6">
+    <!-- Informações Básicas -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Informações B ásicas</h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="name" class="form-label">Nome *</label>
+          <input type="text" id="name" x-model="form.name" class="form-input" required>
+        </div>
+        
+        <div>
+          <label for="slug" class="form-label">Slug</label>
+          <input type="text" id="slug" x-model="form.slug" class="form-input">
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function productFormData() {
+  return {
+    form: {
+      name: '',
+      slug:  ''
+    },
+    errors: {},
+    loading: false,
+    
+    init() {
+      console.log('Product form initialized');
+    },
+    
+    async submit() {
+      this.loading = true;
+      console.log('Form submitted', this.form);
+      this.loading = false;
+    }
+  };
+}
+</script>
+{% endblock %}

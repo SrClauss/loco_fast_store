@@ -22,6 +22,7 @@ pub struct UploadConfig {
 
 impl Default for UploadConfig {
     fn default() -> Self {
+        crate::env::load();
         Self {
             endpoint: std::env::var("MINIO_ENDPOINT")
                 .unwrap_or_else(|_| "http://localhost:9000".to_string()),

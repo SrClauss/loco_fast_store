@@ -21,6 +21,7 @@ use crate::{
     workers::abandoned_cart::AbandonedCartWorker,
     workers::lead_scoring::LeadScoringWorker,
 };
+use crate::controllers::dashboard; // import dashboard controller
 
 pub struct App;
 #[async_trait]
@@ -48,22 +49,28 @@ impl Hooks for App {
     }
 
     async fn initializers(_ctx: &AppContext) -> Result<Vec<Box<dyn Initializer>>> {
-        Ok(vec![
+            Ok(vec![
             Box::new(initializers::view_engine::ViewEngineInitializer),
             Box::new(initializers::analytics_tracker::AnalyticsTrackerInitializer),
+            Box::new(initializers::asaas_webhooks::AsaasWebhooksInitializer),
         ])
     }
 
     fn routes(_ctx: &AppContext) -> AppRoutes {
         AppRoutes::with_default_routes()
+            .add_route(controllers::setup::routes())
             .add_route(controllers::auth::routes())
+            .add_route(controllers::auth::api_routes())
+            .add_route(dashboard::routes())
+            .add_route(controllers::admin_users::routes())
             .add_route(controllers::stores::routes())
             .add_route(controllers::products::routes())
             .add_route(controllers::categories::routes())
             .add_route(controllers::carts::routes())
             .add_route(controllers::orders::routes())
             .add_route(controllers::customers::routes())
-            .add_route(controllers::collections::routes())
+                .add_route(controllers::collections::routes())
+                .add_route(controllers::payments::routes())
     }
 
     async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {

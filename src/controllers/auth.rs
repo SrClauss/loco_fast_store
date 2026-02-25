@@ -258,7 +258,23 @@ async fn resend_verification_email(
     format::json(())
 }
 
+/// Renders admin pages related to authentication
+#[debug_handler]
+pub async fn login_page(
+    ViewEngine(v): ViewEngine<TeraView>,
+) -> Result<Response> {
+    format::render().view(&v, "admin/login.html", serde_json::json!({}))
+}
+
+/// Routes for admin-facing pages (login, register, etc.)
 pub fn routes() -> Routes {
+    Routes::new()
+        .prefix("/admin")
+        .add("/login", get(login_page))
+}
+
+/// API endpoints for authentication
+pub fn api_routes() -> Routes {
     Routes::new()
         .prefix("/api/auth")
         .add("/register", post(register))

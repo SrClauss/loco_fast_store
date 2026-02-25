@@ -1,0 +1,25 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Lojas{% endblock %}
+{% block page_title %}Lojas{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-lg shadow p-6">
+  <div class="flex items-center justify-between mb-6">
+    <h2 class="text-xl font-semibold text-gray-800">
+      <i class="fas fa-store mr-2 text-pink-600"></i>
+      Lista de Lojas
+    </h2>
+    <button class="bg-gradient-to-r from-pink-600 to-pink-700 text-white px-4 py-2 rounded-lg hover:from-pink-700 hover:to-pink-800 transition-all shadow-sm">
+      <i class="fas fa-plus mr-2"></i>
+      Nova Loja
+    </button>
+  </div>
+  
+  <div class="text-center py-12 text-gray-500">
+    <i class="fas fa-store text-6xl mb-4 text-gray-300"></i>
+    <p class="text-lg">Nenhuma loja cadastrada</p>
+    <p class="text-sm mt-2">Crie sua primeira loja para começar a vender</p>
+  </div>
+</div>
+{% endblock %}

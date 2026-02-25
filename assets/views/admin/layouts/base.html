@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin Panel{% endblock %} - Loco Fast Store</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="/static/css/output.css">
+  
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Alpine.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  
+  {% block head %}{% endblock %}
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+</head>
+<body class="bg-gray-50">
+  <div x-data="{ sidebarOpen: $store.sidebar.open }" class="flex h-screen overflow-hidden">
+    
+    <!-- Sidebar -->
+    <aside 
+      x-show="sidebarOpen"
+      x-transition:enter="transition ease-out duration-300"
+      x-transition:enter-start="-translate-x-full"
+      x-transition:enter-end="translate-x-0"
+      x-transition:leave="transition ease-in duration-300"
+      x-transition:leave-start="translate-x-0"
+      x-transition:leave-end="-translate-x-full"
+      class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 flex flex-col"
+    >
+      <!-- Logo -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg flex items-center justify-center">
+            <i class="fas fa-bolt text-white"></i>
+          </div>
+          <span class="font-bold text-lg">Loco Store</span>
+        </div>
+        <button @click="$store.sidebar.toggle()" class="lg:hidden p-1 hover:bg-gray-100 rounded">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Navigation -->
+      <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+        <a href="/admin/dashboard" class="{% if current_page == 'dashboard' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-home"></i>
+          Dashboard
+        </a>
+
+        <div class="pt-4 pb-2">
+          <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Catálogo</p>
+        </div>
+
+        <a href="/admin/products" class="{% if current_page == 'products' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-box"></i>
+          Produtos
+        </a>
+
+        <a href="/admin/categories" class="{% if current_page == 'categories' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-tags"></i>
+          Categorias
+        </a>
+
+        <a href="/admin/collections" class="{% if current_page == 'collections' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-layer-group"></i>
+          Coleções
+        </a>
+
+        <div class="pt-4 pb-2">
+          <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Vendas</p>
+        </div>
+
+        <a href="/admin/orders" class="{% if current_page == 'orders' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-shopping-bag"></i>
+          Pedidos
+        </a>
+
+        <a href="/admin/carts" class="{% if current_page == 'carts' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-shopping-cart"></i>
+          Carrinhos
+        </a>
+
+        <a href="/admin/customers" class="{% if current_page == 'customers' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-users"></i>
+          Clientes
+        </a>
+
+        <div class="pt-4 pb-2">
+          <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Configurações</p>
+        </div>
+
+        <a href="/admin/stores" class="{% if current_page == 'stores' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-store"></i>
+          Lojas
+        </a>
+
+        <a href="/admin/users" class="{% if current_page == 'users' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-user-shield"></i>
+          Usuários
+        </a>
+
+        <a href="/admin/analytics" class="{% if current_page == 'analytics' %}sidebar-link-active{% else %}sidebar-link{% endif %}">
+          <i class="fas fa-chart-bar"></i>
+          Analytics
+        </a>
+      </nav>
+
+      <!-- User menu -->
+      <div class="border-t border-gray-200" x-data="{ userMenuOpen: false }">
+        <button @click="userMenuOpen = !userMenuOpen" class="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors">
+          <div class="w-8 h-8 bg-gradient-to-br from-pink-500 to-rose-500 rounded-full flex items-center justify-center text-white font-medium">
+            A
+          </div>
+          <div class="flex-1 text-left">
+            <p class="text-sm font-medium text-gray-900">Admin User</p>
+            <p class="text-xs text-gray-500">admin@example.com</p>
+          </div>
+          <i class="fas fa-chevron-down text-gray-400"></i>
+        </button>
+        
+        <div x-show="userMenuOpen" x-cloak class="px-2 py-2 border-t border-gray-200">
+          <a href="/admin/profile" class="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Perfil</a>
+          <a href="/admin/settings" class="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Configurações</a>
+          <button @click="$store.auth.logout()" class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg">Sair</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Header -->
+      <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-4">
+          <button @click="$store.sidebar.toggle()" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <i class="fas fa-bars"></i>
+          </button>
+          <h1 class="text-xl font-semibold text-gray-900">{% block page_title %}Dashboard{% endblock %}</h1>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <!-- Search -->
+          <div class="relative" x-data="{ searchOpen: false }">
+            <button @click="searchOpen = true" class="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <i class="fas fa-search text-gray-600"></i>
+            </button>
+          </div>
+
+          <!-- Notifications -->
+          <div class="relative" x-data="{ notifOpen: false }">
+            <button @click="notifOpen = !notifOpen" class="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
+              <i class="fas fa-bell text-gray-600"></i>
+              <span class="absolute top-1 right-1 w-2 h-2 bg-pink-500 rounded-full"></span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Page content -->
+      <main class="flex-1 overflow-y-auto p-6">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div 
+    x-data 
+    class="fixed bottom-4 right-4 z-50 space-y-2"
+  >
+    <template x-for="toast in $store.toasts.items" :key="toast.id">
+      <div 
+        x-show="true"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 translate-y-4"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 translate-y-4"
+        class="bg-white rounded-lg shadow-lg border border-gray-200 p-4 flex items-center gap-3 max-w-sm"
+      >
+        <div 
+          class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center"
+          :class="{
+            'bg-green-100 text-green-600': toast.type === 'success',
+            'bg-red-100 text-red-600': toast.type === 'error',
+            'bg-yellow-100 text-yellow-600': toast.type === 'warning',
+            'bg-blue-100 text-blue-600': toast.type === 'info'
+          }"
+        >
+          <i class="fas fa-check"></i>
+        </div>
+        <p class="flex-1 text-sm text-gray-900" x-text="toast.message"></p>
+        <button @click="$store.toasts.remove(toast.id)" class="text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    </template>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/js/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

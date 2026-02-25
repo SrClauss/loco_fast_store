@@ -1,6 +1,7 @@
 use loco_rs::prelude::*;
 use serde::{Deserialize, Serialize};
 
+
 use crate::models::carts::Model as CartModel;
 
 pub struct AbandonedCartWorker {
@@ -21,6 +22,7 @@ impl BackgroundWorker<AbandonedCartWorkerArgs> for AbandonedCartWorker {
     }
 
     async fn perform(&self, args: AbandonedCartWorkerArgs) -> Result<()> {
+        crate::env::load();
         let threshold = args.threshold_minutes.unwrap_or(60);
 
         let abandoned_carts =
