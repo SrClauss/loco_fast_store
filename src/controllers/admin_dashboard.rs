@@ -144,7 +144,8 @@ pub async fn stats(State(ctx): State<AppContext>) -> Result<Response> {
     let customer_map: HashMap<i32, String> = customers_list
         .into_iter()
         .map(|c| {
-            let name = format!("{} {}", c.first_name, c.last_name).trim().to_string();
+            let full = format!("{} {}", c.first_name, c.last_name);
+            let name = full.trim().to_string();
             let label = if name.is_empty() { c.email } else { name };
             (c.id, label)
         })

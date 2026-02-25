@@ -230,7 +230,9 @@ function dashboardData() {
 
     async fetchStats() {
       try {
-        const data = await fetch('/api/admin/dashboard/stats').then(r => r.json());
+        const resp = await fetch('/api/admin/dashboard/stats');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const data = await resp.json();
         this.stats = {
           totalRevenue: data.total_revenue ?? 0,
           totalOrders: data.total_orders ?? 0,
@@ -259,8 +261,8 @@ function dashboardData() {
       if (this.revenueChart) this.revenueChart.destroy();
 
       const labels = chartData.map(p => {
-        const [y, m, d] = p.date.split('-');
-        return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+        const d = new Date(p.date + 'T00:00:00');
+        return isNaN(d.getTime()) ? p.date : d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
       });
       const revenues = chartData.map(p => p.revenue / 100);
 
