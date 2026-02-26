@@ -10,6 +10,7 @@ mod m20260225_000006_collections;
 mod m20260225_000007_customers_addresses;
 mod m20260225_000008_carts;
 mod m20260225_000009_orders;
+mod m20260226_000010_store_collaborators_shippings;
 
 pub struct Migrator;
 
@@ -26,6 +27,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260225_000007_customers_addresses::Migration),
             Box::new(m20260225_000008_carts::Migration),
             Box::new(m20260225_000009_orders::Migration),
+            Box::new(m20260226_000010_store_collaborators_shippings::Migration),
             // inject-above (do not remove this comment)
         ]
     }

@@ -1,0 +1,59 @@
+{%% extends "store/layouts/base.html" %%}
+{%% block title %%}Início{%% endblock %%}
+
+{%% block content %%}
+<!-- HERO -->
+<section class="bg-gradient-to-br from-gray-900 to-gray-700 text-white py-20 px-4">
+  <div class="max-w-4xl mx-auto text-center">
+    <h1 class="text-5xl font-bold mb-4">{{ store.name }}</h1>
+    <p class="text-xl text-gray-300 mb-8">{{ store.description }}</p>
+    <a href="/produtos" class="inline-block bg-white text-gray-900 px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-100 transition-colors">
+      Ver produtos
+    </a>
+  </div>
+</section>
+
+<!-- DESTAQUES -->
+<section class="max-w-7xl mx-auto px-4 py-16">
+  <h2 class="text-3xl font-bold text-gray-900 mb-8">Destaques</h2>
+  <div x-data="ProductList({ featured: 'true', limit: 8 })" x-init="init()">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <template x-if="loading">
+        <template x-for="i in 8" :key="i">
+          <div class="bg-gray-100 animate-pulse rounded-2xl h-72"></div>
+        </template>
+      </template>
+      <template x-for="p in products" :key="p.pid">
+        <a :href="\"/produto/\"+p.slug" class="group block">
+          <div class="aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-3">
+            <img :src="p.image_url || \"/static/images/placeholder.png\"" :alt="p.title"
+                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+          </div>
+          <p class="font-semibold text-gray-900 text-sm" x-text="p.title"></p>
+          <p class="font-bold text-gray-900 mt-1" x-text="fmtMoney(p.price)"></p>
+        </a>
+      </template>
+    </div>
+    <div class="text-center mt-10">
+      <a href="/produtos" class="px-8 py-3 border border-gray-900 rounded-xl font-semibold hover:bg-gray-900 hover:text-white transition-colors">
+        Ver todos os produtos
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- CATEGORIAS -->
+<section class="bg-gray-50 py-16 px-4">
+  <div class="max-w-7xl mx-auto">
+    <h2 class="text-3xl font-bold text-gray-900 mb-8">Categorias</h2>
+    <div x-data="CategoryList()" x-init="init()" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <template x-for="c in categories" :key="c.pid">
+        <a :href="\"/categoria/\"+c.slug"
+           class="bg-white rounded-2xl p-6 text-center border border-gray-200 hover:border-gray-900 hover:shadow-md transition-all group">
+          <p class="font-bold text-gray-900 group-hover:text-gray-700" x-text="c.name"></p>
+        </a>
+      </template>
+    </div>
+  </div>
+</section>
+{%% endblock %%}

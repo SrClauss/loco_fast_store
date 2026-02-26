@@ -1,0 +1,165 @@
+{%% extends "store/layouts/base.html" %%}
+{%% block title %%}Checkout{%% endblock %%}
+
+{%% block content %%}
+<div class="max-w-4xl mx-auto px-4 py-10">
+  <div x-data="CheckoutForm()" x-init="init()">
+
+    <!-- Progress bar -->
+    <div class="flex items-center justify-center gap-4 mb-10">
+      <template x-for="(label, idx) in ['Identificação','Endereço','Pagamento']" :key="idx">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+               :class="step > idx+1 ? 'bg-green-500 text-white' : step === idx+1 ? 'bg-gray-900 text-white' : 'bg-gray-200 text-gray-500'">
+            <span x-show="step <= idx+1" x-text="idx+1"></span>
+            <i x-show="step > idx+1" class="fas fa-check text-xs"></i>
+          </div>
+          <span class="text-sm font-medium"
+                :class="step === idx+1 ? 'text-gray-900' : 'text-gray-400'"
+                x-text="label"></span>
+          <i x-show="idx < 2" class="fas fa-chevron-right text-gray-300 text-xs ml-2"></i>
+        </div>
+      </template>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div class="lg:col-span-2">
+
+        <!-- Step 1: Identificação -->
+        <div x-show="step === 1" class="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+          <h2 class="font-bold text-xl">Seus dados</h2>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+              <input x-model="form.first_name" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="João">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Sobrenome</label>
+              <input x-model="form.last_name" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="Silva">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">E-mail</label>
+            <input x-model="form.email" type="email" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="joao@exemplo.com">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Telefone (opcional)</label>
+            <input x-model="form.phone" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="(11) 99999-9999">
+          </div>
+          <button @click="nextStep()" class="w-full bg-gray-900 text-white py-3.5 rounded-xl font-semibold hover:bg-gray-700 transition-colors">Continuar</button>
+        </div>
+
+        <!-- Step 2: Endereço -->
+        <div x-show="step === 2" class="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+          <h2 class="font-bold text-xl">Endereço de entrega</h2>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">CEP</label>
+              <input x-model="form.addr.postal_code" @blur="lookupCep()" maxlength="9"
+                     class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="00000-000">
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">UF</label>
+              <input x-model="form.addr.state" maxlength="2" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="SP">
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Rua e número</label>
+            <input x-model="form.addr.address_line_1" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="Rua Exemplo, 123">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Complemento (opcional)</label>
+            <input x-model="form.addr.address_line_2" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="Apto 42">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cidade</label>
+            <input x-model="form.addr.city" class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" placeholder="São Paulo">
+          </div>
+          <div class="flex gap-3">
+            <button @click="prevStep()" class="flex-1 border border-gray-300 py-3.5 rounded-xl font-medium hover:bg-gray-50 transition-colors">Voltar</button>
+            <button @click="nextStep()" class="flex-1 bg-gray-900 text-white py-3.5 rounded-xl font-semibold hover:bg-gray-700 transition-colors">Continuar</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Pagamento -->
+        <div x-show="step === 3" class="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+          <h2 class="font-bold text-xl">Forma de pagamento</h2>
+          <div class="space-y-3">
+            <label class="flex items-center gap-3 p-4 border rounded-xl cursor-pointer"
+                   :class="form.payment === 'pix' ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-400'">
+              <input type="radio" x-model="form.payment" value="pix" class="text-gray-900">
+              <div class="flex-1">
+                <p class="font-medium">PIX</p>
+                <p class="text-xs text-gray-500">Pagamento imediato • sem taxas</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-4 border rounded-xl cursor-pointer"
+                   :class="form.payment === 'credit_card' ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-400'">
+              <input type="radio" x-model="form.payment" value="credit_card" class="text-gray-900">
+              <div class="flex-1">
+                <p class="font-medium">Cartão de crédito</p>
+                <p class="text-xs text-gray-500">Visa, Mastercard, Elo</p>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-4 border rounded-xl cursor-pointer"
+                   :class="form.payment === 'boleto' ? 'border-gray-900 bg-gray-50' : 'border-gray-200 hover:border-gray-400'">
+              <input type="radio" x-model="form.payment" value="boleto" class="text-gray-900">
+              <div class="flex-1">
+                <p class="font-medium">Boleto bancário</p>
+                <p class="text-xs text-gray-500">Vence em 3 dias úteis</p>
+              </div>
+            </label>
+          </div>
+          <textarea x-model="form.notes" rows="3"
+                    class="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                    placeholder="Observações (opcional)"></textarea>
+          <p x-show="error" x-text="error" class="text-sm text-red-600 bg-red-50 p-3 rounded-xl"></p>
+          <div class="flex gap-3">
+            <button @click="prevStep()" class="flex-1 border border-gray-300 py-3.5 rounded-xl font-medium hover:bg-gray-50 transition-colors">Voltar</button>
+            <button @click="submit()" :disabled="loading"
+                    class="flex-1 bg-gray-900 text-white py-3.5 rounded-xl font-semibold hover:bg-gray-700 disabled:opacity-50 transition-colors">
+              <i x-show="loading" class="fas fa-spinner fa-spin mr-2"></i>
+              Finalizar pedido
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 4: Confirmação -->
+        <div x-show="step === 4" class="bg-white rounded-2xl border border-green-200 bg-green-50 p-8 text-center space-y-4">
+          <div class="w-16 h-16 bg-green-500 text-white rounded-full flex items-center justify-center mx-auto text-3xl">
+            <i class="fas fa-check"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-gray-900">Pedido confirmado!</h2>
+          <p class="text-gray-600">
+            Pedido <strong x-text="order?.order_number"></strong> realizado com sucesso.
+            Você receberá as atualizações por e-mail.
+          </p>
+          <a href="/" class="inline-block mt-4 bg-gray-900 text-white px-8 py-3 rounded-xl font-semibold hover:bg-gray-700 transition-colors">
+            Continuar comprando
+          </a>
+        </div>
+      </div>
+
+      <!-- Resumo lateral -->
+      <div class="bg-gray-50 rounded-2xl p-6 h-fit space-y-4">
+        <h3 class="font-bold text-lg">Resumo</h3>
+        <template x-for="item in $store.cart.items" :key="item.pid || item.id">
+          <div class="flex gap-3 text-sm">
+            <img :src="item.image_url || '/static/images/placeholder.png'" :alt="item.title"
+                 class="w-12 h-12 object-cover rounded-lg flex-shrink-0">
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-gray-900 truncate" x-text="item.title"></p>
+              <p class="text-gray-500 text-xs" x-text="'×' + item.quantity"></p>
+            </div>
+            <p class="font-semibold flex-shrink-0" x-text="fmtMoney(item.total)"></p>
+          </div>
+        </template>
+        <div class="border-t pt-4 flex justify-between font-bold text-lg">
+          <span>Total</span>
+          <span x-text="fmtMoney($store.cart.total)"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{%% endblock %%}

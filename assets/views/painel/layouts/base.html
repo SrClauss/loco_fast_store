@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Painel{% endblock %} — Loco Fast Store</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/output.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>body { font-family: 'Inter', sans-serif; }</style>
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50">
+  <div x-data class="flex h-screen overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
+
+      <!-- Logo -->
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center gap-3">
+        <div class="w-8 h-8 bg-gradient-to-br from-indigo-500 to-violet-600 rounded-lg flex items-center justify-center">
+          <i class="fas fa-truck text-white text-sm"></i>
+        </div>
+        <div>
+          <p class="font-bold text-sm text-gray-900">Painel de Envios</p>
+          <p class="text-xs text-gray-500">{{ store.name }}</p>
+        </div>
+      </div>
+
+      <!-- Nav -->
+      <nav class="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+        <a href="/painel/{{ store.pid }}/"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if current_page == 'dashboard' %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+          <i class="fas fa-home w-4 text-center"></i>
+          Dashboard
+        </a>
+
+        <div class="pt-3 pb-1">
+          <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Pedidos</p>
+        </div>
+
+        <a href="/painel/{{ store.pid }}/pedidos"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if current_page == 'orders' %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+          <i class="fas fa-shopping-bag w-4 text-center"></i>
+          Todos os pedidos
+        </a>
+
+        <a href="/painel/{{ store.pid }}/pedidos?fulfillment_status=not_fulfilled"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if current_page == 'pending_shipments' %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+          <i class="fas fa-clock w-4 text-center"></i>
+          Aguardando envio
+        </a>
+
+        <a href="/painel/{{ store.pid }}/pedidos?fulfillment_status=fulfilled"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if current_page == 'shipped' %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+          <i class="fas fa-truck w-4 text-center"></i>
+          Em trânsito
+        </a>
+
+        <a href="/painel/{{ store.pid }}/pedidos?fulfillment_status=delivered"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  {% if current_page == 'delivered' %}bg-indigo-50 text-indigo-700{% else %}text-gray-700 hover:bg-gray-100{% endif %}">
+          <i class="fas fa-check-circle w-4 text-center"></i>
+          Entregues
+        </a>
+
+        {% if can_manage %}
+        <div class="pt-3 pb-1">
+          <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Equipe</p>
+        </div>
+        <a href="/painel/{{ store.pid }}/colaboradores"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100">
+          <i class="fas fa-users w-4 text-center"></i>
+          Colaboradores
+        </a>
+        {% endif %}
+      </nav>
+
+      <!-- User -->
+      <div class="border-t border-gray-200 px-4 py-3 flex items-center gap-3">
+        <div class="w-8 h-8 bg-gradient-to-br from-indigo-400 to-violet-500 rounded-full flex items-center justify-center text-white text-sm font-bold">
+          {{ user.name | truncate(length=1, end="") | upper }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-medium text-gray-900 truncate">{{ user.name }}</p>
+          <p class="text-xs text-gray-500 capitalize">{{ user.role }}</p>
+        </div>
+        <button onclick="painelLogout()" title="Sair" class="text-gray-400 hover:text-red-500 transition-colors">
+          <i class="fas fa-sign-out-alt"></i>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <div class="flex-1 flex flex-col overflow-hidden">
+      <!-- Topbar -->
+      <header class="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <h1 class="text-lg font-semibold text-gray-900">{% block page_title %}Painel{% endblock %}</h1>
+        <div class="flex items-center gap-3 text-sm text-gray-500">
+          <i class="fas fa-store"></i>
+          <span>{{ store.name }}</span>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <main class="flex-1 overflow-y-auto p-6">
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div x-data class="fixed bottom-4 right-4 z-50 space-y-2">
+    <template x-for="toast in ($store.toasts?.items ?? [])" :key="toast.id">
+      <div x-show="true" x-transition
+           class="bg-white border shadow-lg rounded-lg px-4 py-3 flex items-center gap-3 max-w-sm"
+           :class="{'border-green-400': toast.type==='success','border-red-400': toast.type==='error','border-yellow-400': toast.type==='warning','border-blue-400': toast.type==='info'}">
+        <span x-text="toast.message" class="text-sm text-gray-800 flex-1"></span>
+        <button @click="$store.toasts.dismiss(toast.id)" class="text-gray-400 hover:text-gray-600">✕</button>
+      </div>
+    </template>
+  </div>
+
+  <script>
+  // ── API helper ─────────────────────────────────────────────────────────────
+  const PAINEL_STORE_PID = '{{ store.pid }}';
+  const PAINEL_TOKEN_KEY = 'painel_token_' + PAINEL_STORE_PID;
+
+  const papi = {
+    token() { return localStorage.getItem(PAINEL_TOKEN_KEY) || ''; },
+    headers() {
+      return {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + this.token(),
+      };
+    },
+    async req(method, path, body) {
+      const res = await fetch('/api/painel' + path, {
+        method,
+        headers: this.headers(),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (res.status === 401) { painelLogout(); return; }
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.ok === false) throw json.error || { message: 'Erro desconhecido' };
+      return json.data ?? json;
+    },
+    get:    (p) => papi.req('GET', p),
+    post:   (p, b) => papi.req('POST', p, b),
+    put:    (p, b) => papi.req('PUT', p, b),
+    delete: (p) => papi.req('DELETE', p),
+  };
+
+  function painelLogout() {
+    localStorage.removeItem(PAINEL_TOKEN_KEY);
+    window.location.href = '/painel/login';
+  }
+
+  function fmt(cents, currency = 'BRL') {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(cents / 100);
+  }
+
+  function fmtDate(s) {
+    if (!s) return '—';
+    return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(s));
+  }
+
+  const STATUS_LABELS = {
+    // Pedido
+    pending: 'Pendente', confirmed: 'Confirmado', processing: 'Processando',
+    shipped: 'Enviado', delivered: 'Entregue', cancelled: 'Cancelado',
+    // Pagamento
+    awaiting: 'Aguardando', paid: 'Pago', failed: 'Falhou', refunded: 'Reembolsado',
+    // Fulfillment
+    not_fulfilled: 'Não enviado', fulfilled: 'Enviado', partially_fulfilled: 'Parcial',
+    // Envio
+    posted: 'Postado', in_transit: 'Em trânsito', out_for_delivery: 'Saiu p/ entrega',
+    returned: 'Devolvido',
+  };
+
+  const STATUS_COLORS = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    confirmed: 'bg-blue-100 text-blue-800',
+    processing: 'bg-blue-100 text-blue-800',
+    shipped: 'bg-indigo-100 text-indigo-800',
+    delivered: 'bg-green-100 text-green-800',
+    cancelled: 'bg-red-100 text-red-800',
+    awaiting: 'bg-yellow-100 text-yellow-800',
+    paid: 'bg-green-100 text-green-800',
+    failed: 'bg-red-100 text-red-800',
+    refunded: 'bg-gray-100 text-gray-700',
+    not_fulfilled: 'bg-orange-100 text-orange-800',
+    fulfilled: 'bg-indigo-100 text-indigo-800',
+    partially_fulfilled: 'bg-yellow-100 text-yellow-800',
+    posted: 'bg-blue-100 text-blue-800',
+    in_transit: 'bg-indigo-100 text-indigo-800',
+    out_for_delivery: 'bg-purple-100 text-purple-800',
+    delivered: 'bg-green-100 text-green-800',
+    returned: 'bg-red-100 text-red-800',
+  };
+
+  function statusLabel(s) { return STATUS_LABELS[s] || s; }
+  function statusClass(s) { return STATUS_COLORS[s] || 'bg-gray-100 text-gray-700'; }
+
+  // Valida token na entrada de cada página
+  document.addEventListener('DOMContentLoaded', () => {
+    if (!papi.token()) { painelLogout(); }
+  });
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>
