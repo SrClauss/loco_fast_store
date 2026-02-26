@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsEvent {
-    pub store_id: i32,
     pub session_id: String,
     pub customer_id: Option<i32>,
     pub event_type: String,
@@ -29,20 +28,20 @@ pub struct AnalyticsEvent {
 }
 
 /// Chaves Redis para eventos de analytics
-fn redis_key_event_stream(store_id: i32) -> String {
-    format!("analytics:store:{}:events", store_id)
+fn redis_key_event_stream() -> String {
+    "analytics:events".to_string()
 }
 
-fn redis_key_product_views(store_id: i32, product_id: &str) -> String {
-    format!("analytics:store:{}:product:{}:views", store_id, product_id)
+fn redis_key_product_views(product_id: &str) -> String {
+    format!("analytics:product:{}:views", product_id)
 }
 
-fn redis_key_session_products(store_id: i32, session_id: &str) -> String {
-    format!("analytics:store:{}:session:{}:products", store_id, session_id)
+fn redis_key_session_products(session_id: &str) -> String {
+    format!("analytics:session:{}:products", session_id)
 }
 
-fn redis_key_product_visitors(store_id: i32, product_id: &str) -> String {
-    format!("analytics:store:{}:product:{}:visitors", store_id, product_id)
+fn redis_key_product_visitors(product_id: &str) -> String {
+    format!("analytics:product:{}:visitors", product_id)
 }
 
 /// Cliente Redis para analytics
@@ -69,8 +68,8 @@ impl AnalyticsService {
         let mut conn = self.get_conn().await?;
         let event_json = serde_json::to_string(event)?;
 
-        // Adiciona ao stream de eventos da loja
-        let key = redis_key_event_stream(event.store_id);
+        // Adiciona ao stream de eventos
+        let key = redis_key_event_stream();
         redis::cmd("LPUSH")
             .arg(&key)
             .arg(&event_json)
@@ -87,7 +86,7 @@ impl AnalyticsService {
         // Se for product_view, incrementa contadores
         if event.event_type == "product_view" {
             if let Some(ref entity_id) = event.entity_id {
-                self.track_product_view(event.store_id, entity_id, &event.session_id)
+                self.track_product_view(entity_id, &event.session_id)
                     .await?;
             }
         }
@@ -95,7 +94,7 @@ impl AnalyticsService {
         // Se for product_revisit, incrementa contador de namoro
         if event.event_type == "product_revisit" {
             if let Some(ref entity_id) = event.entity_id {
-                self.track_product_revisit(event.store_id, entity_id, &event.session_id)
+                self.track_product_revisit(entity_id, &event.session_id)
                     .await?;
             }
         }
@@ -106,14 +105,13 @@ impl AnalyticsService {
     /// Incrementa view de produto e rastreia sessão
     async fn track_product_view(
         &self,
-        store_id: i32,
         product_id: &str,
         session_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.get_conn().await?;
 
         // Incrementa contador total de views do produto
-        let views_key = redis_key_product_views(store_id, product_id);
+        let views_key = redis_key_product_views(product_id);
         redis::cmd("INCR")
             .arg(&views_key)
             .query_async::<()>(&mut conn)
@@ -125,7 +123,7 @@ impl AnalyticsService {
             .await?;
 
         // Rastreia quais produtos a sessão visitou (para detectar revisitas)
-        let session_key = redis_key_session_products(store_id, session_id);
+        let session_key = redis_key_session_products(session_id);
         redis::cmd("SADD")
             .arg(&session_key)
             .arg(product_id)
@@ -138,7 +136,7 @@ impl AnalyticsService {
             .await?;
 
         // Rastreia visitantes únicos do produto (HyperLogLog)
-        let visitors_key = redis_key_product_visitors(store_id, product_id);
+        let visitors_key = redis_key_product_visitors(product_id);
         redis::cmd("PFADD")
             .arg(&visitors_key)
             .arg(session_id)
@@ -156,17 +154,13 @@ impl AnalyticsService {
     /// Rastreia revisita (namoro) - session já visitou este produto antes
     async fn track_product_revisit(
         &self,
-        store_id: i32,
         product_id: &str,
         session_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.get_conn().await?;
 
         // Incrementa contador de revisitas
-        let key = format!(
-            "analytics:store:{}:product:{}:revisits",
-            store_id, product_id
-        );
+        let key = format!("analytics:product:{}:revisits", product_id);
         redis::cmd("INCR")
             .arg(&key)
             .query_async::<()>(&mut conn)
@@ -178,10 +172,7 @@ impl AnalyticsService {
             .await?;
 
         // Rastreia sessões que "namoraram" este produto
-        let namoro_key = format!(
-            "analytics:store:{}:product:{}:namoro_sessions",
-            store_id, product_id
-        );
+        let namoro_key = format!("analytics:product:{}:namoro_sessions", product_id);
         redis::cmd("SADD")
             .arg(&namoro_key)
             .arg(session_id)
@@ -199,12 +190,11 @@ impl AnalyticsService {
     /// Verifica se sessão já visitou o produto (para detectar revisita)
     pub async fn has_visited_product(
         &self,
-        store_id: i32,
         session_id: &str,
         product_id: &str,
     ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.get_conn().await?;
-        let key = redis_key_session_products(store_id, session_id);
+        let key = redis_key_session_products(session_id);
         let result: bool = redis::cmd("SISMEMBER")
             .arg(&key)
             .arg(product_id)
@@ -216,11 +206,10 @@ impl AnalyticsService {
     /// Obtém contagem de views de um produto
     pub async fn get_product_views(
         &self,
-        store_id: i32,
         product_id: &str,
     ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.get_conn().await?;
-        let key = redis_key_product_views(store_id, product_id);
+        let key = redis_key_product_views(product_id);
         let count: Option<i64> = redis::cmd("GET")
             .arg(&key)
             .query_async(&mut conn)
@@ -231,11 +220,10 @@ impl AnalyticsService {
     /// Obtém visitantes únicos de um produto (HyperLogLog)
     pub async fn get_product_unique_visitors(
         &self,
-        store_id: i32,
         product_id: &str,
     ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.get_conn().await?;
-        let key = redis_key_product_visitors(store_id, product_id);
+        let key = redis_key_product_visitors(product_id);
         let count: i64 = redis::cmd("PFCOUNT")
             .arg(&key)
             .query_async(&mut conn)
@@ -245,9 +233,9 @@ impl AnalyticsService {
 
     /// Flush: move dados quentes do Redis para Sled (persistência)
     /// Chamado periodicamente pelo AnalyticsFlushWorker
-    pub async fn flush_to_sled(&self, store_id: i32) -> Result<usize, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn flush_to_sled(&self) -> Result<usize, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.get_conn().await?;
-        let key = redis_key_event_stream(store_id);
+        let key = redis_key_event_stream();
 
         // Pega todos os eventos do stream
         let events: Vec<String> = redis::cmd("LRANGE")
@@ -264,8 +252,8 @@ impl AnalyticsService {
         let count = events.len();
 
         // Salva no Sled com chave baseada em timestamp
-        let tree = self.sled_db.open_tree(format!("store:{}", store_id))?;
-        let batch_key = format!("events:{}:{}", store_id, chrono::Utc::now().timestamp_millis());
+        let tree = self.sled_db.open_tree("analytics")?;
+        let batch_key = format!("events:{}", chrono::Utc::now().timestamp_millis());
         let batch_json = serde_json::to_vec(&events)?;
         tree.insert(batch_key.as_bytes(), batch_json)?;
         tree.flush()?;
@@ -277,7 +265,6 @@ impl AnalyticsService {
             .await?;
 
         tracing::info!(
-            store_id = store_id,
             events_flushed = count,
             "Analytics flush to Sled completed"
         );
@@ -285,13 +272,12 @@ impl AnalyticsService {
         Ok(count)
     }
 
-    /// Lê dados persistidos no Sled para um período
+    /// Lê dados persistidos no Sled
     pub fn read_persisted_events(
         &self,
-        store_id: i32,
     ) -> Result<Vec<Vec<String>>, Box<dyn std::error::Error + Send + Sync>> {
-        let tree = self.sled_db.open_tree(format!("store:{}", store_id))?;
-        let prefix = format!("events:{}", store_id);
+        let tree = self.sled_db.open_tree("analytics")?;
+        let prefix = "events:";
         let mut all_events = Vec::new();
 
         for item in tree.scan_prefix(prefix.as_bytes()) {
@@ -307,14 +293,13 @@ impl AnalyticsService {
     /// Score baseado em: views, revisitas (namoro), add-to-cart, checkout_start
     pub async fn calculate_lead_score(
         &self,
-        store_id: i32,
         session_id: &str,
     ) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
         let mut conn = self.get_conn().await?;
         let mut score: f64 = 0.0;
 
         // Quantos produtos visitou
-        let session_key = redis_key_session_products(store_id, session_id);
+        let session_key = redis_key_session_products(session_id);
         let products_visited: i64 = redis::cmd("SCARD")
             .arg(&session_key)
             .query_async(&mut conn)
@@ -323,7 +308,7 @@ impl AnalyticsService {
         score += products_visited as f64 * 1.0;
 
         // Eventos do session (buscar no stream)
-        let events_key = redis_key_event_stream(store_id);
+        let events_key = redis_key_event_stream();
         let all_events: Vec<String> = redis::cmd("LRANGE")
             .arg(&events_key)
             .arg(0)

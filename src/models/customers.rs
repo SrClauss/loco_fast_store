@@ -47,15 +47,13 @@ impl ActiveModelBehavior for ActiveModel {}
 impl ActiveModelBehavior for addresses::ActiveModel {}
 
 impl Model {
-    /// Cria um novo cliente na loja
+    /// Cria um novo cliente
     pub async fn create_customer(
         db: &DatabaseConnection,
-        store_id: i32,
         params: &CreateCustomerParams,
     ) -> ModelResult<Self> {
         let customer = customers::ActiveModel {
             pid: ActiveValue::set(Uuid::new_v4()),
-            store_id: ActiveValue::set(store_id),
             email: ActiveValue::set(params.email.clone()),
             first_name: ActiveValue::set(params.first_name.clone()),
             last_name: ActiveValue::set(params.last_name.clone()),
@@ -73,11 +71,9 @@ impl Model {
     /// Busca ou cria customer anônimo (checkout sem conta)
     pub async fn find_or_create_anonymous(
         db: &DatabaseConnection,
-        store_id: i32,
         email: &str,
     ) -> ModelResult<Self> {
         let existing = Entity::find()
-            .filter(customers::Column::StoreId.eq(store_id))
             .filter(customers::Column::Email.eq(email))
             .filter(customers::Column::DeletedAt.is_null())
             .one(db)
@@ -96,7 +92,7 @@ impl Model {
             user_id: None,
             marketing_consent: None,
         };
-        Self::create_customer(db, store_id, &params).await
+        Self::create_customer(db, &params).await
     }
 
     /// Busca pelo PID
@@ -109,14 +105,12 @@ impl Model {
         customer.ok_or_else(|| ModelError::EntityNotFound)
     }
 
-    /// Busca por email na loja
+    /// Busca por email
     pub async fn find_by_email(
         db: &DatabaseConnection,
-        store_id: i32,
         email: &str,
     ) -> ModelResult<Self> {
         let customer = Entity::find()
-            .filter(customers::Column::StoreId.eq(store_id))
             .filter(customers::Column::Email.eq(email))
             .filter(customers::Column::DeletedAt.is_null())
             .one(db)
@@ -124,15 +118,13 @@ impl Model {
         customer.ok_or_else(|| ModelError::EntityNotFound)
     }
 
-    /// Lista clientes da loja
+    /// Lista clientes
     pub async fn list_for_store(
         db: &DatabaseConnection,
-        store_id: i32,
         cursor: Option<i32>,
         limit: u64,
     ) -> ModelResult<Vec<Self>> {
         let mut query = Entity::find()
-            .filter(customers::Column::StoreId.eq(store_id))
             .filter(customers::Column::DeletedAt.is_null());
 
         if let Some(cursor_id) = cursor {

@@ -11,7 +11,6 @@ use crate::{
         order_shippings::{CreateShippingParams, Model as ShippingModel, UpdateShippingStatusParams},
         orders::Model as OrderModel,
         store_collaborators::Model as CollaboratorModel,
-        stores::Model as StoreModel,
     },
     shipping,
 };
@@ -46,19 +45,16 @@ pub struct CalculateFreightParams {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/// Verifica se o usuário autenticado é colaborador da loja e tem a permissão mínima.
-/// Retorna o colaborador ou 403.
+/// Verifica se o usuário autenticado é colaborador e tem a permissão mínima.
 async fn require_collab(
     db: &DatabaseConnection,
     user_pid: &str,
-    store_pid: &Uuid,
     need_update: bool,
-) -> Result<(users::Model, crate::models::_entities::stores::Model, crate::models::_entities::store_collaborators::Model)> {
+) -> Result<(users::Model, crate::models::_entities::store_collaborators::Model)> {
     let user = users::Model::find_by_pid(db, user_pid).await?;
-    let store = StoreModel::find_by_pid(db, store_pid).await?;
-    let collab = CollaboratorModel::find_for_user_and_store(db, user.id, store.id)
+    let collab = CollaboratorModel::find_for_user(db, user.id)
         .await
-        .map_err(|_| loco_rs::Error::Unauthorized("Sem acesso a esta loja".into()))?;
+        .map_err(|_| loco_rs::Error::Unauthorized("Sem acesso ao painel".into()))?;
 
     if need_update && !collab.can_update_orders() {
         return Err(loco_rs::Error::Unauthorized("Permissão insuficiente".into()));
@@ -67,14 +63,12 @@ async fn require_collab(
         return Err(loco_rs::Error::Unauthorized("Permissão insuficiente".into()));
     }
 
-    Ok((user, store, collab))
+    Ok((user, collab))
 }
 
 // ── Autenticação ──────────────────────────────────────────────────────────────
 
 /// POST /api/painel/auth/login
-/// Usa o mesmo endpoint de login do sistema administrativo.
-/// Retorna JWT + lista de lojas acessíveis ao usuário.
 #[debug_handler]
 pub async fn login(
     State(ctx): State<AppContext>,
@@ -93,59 +87,26 @@ pub async fn login(
         .generate_jwt(&jwt_secret.secret, jwt_secret.expiration)
         .or_else(|_| unauthorized("Erro ao gerar token"))?;
 
-    // Lista lojas acessíveis
-    let collabs = CollaboratorModel::list_stores_for_user(&ctx.db, user.id).await?;
-    let store_ids: Vec<i32> = collabs.iter().map(|c| c.store_id).collect();
-
-    let stores: Vec<serde_json::Value> = {
-        let mut result = vec![];
-        for store_id in store_ids {
-            if let Ok(s) = crate::models::_entities::stores::Entity::find_by_id(store_id)
-                .one(&ctx.db)
-                .await
-            {
-                if let Some(s) = s {
-                    let role = collabs.iter()
-                        .find(|c| c.store_id == store_id)
-                        .map(|c| c.role.as_str())
-                        .unwrap_or("viewer");
-                    result.push(serde_json::json!({
-                        "pid": s.pid.to_string(),
-                        "name": s.name,
-                        "slug": s.slug,
-                        "role": role,
-                    }));
-                }
-            }
-        }
-        result
-    };
-
     format::json(ApiResponse::success(serde_json::json!({
         "token": token,
         "user": { "pid": user.pid.to_string(), "name": user.name, "email": user.email },
-        "stores": stores,
     })))
 }
 
 // ── Pedidos ───────────────────────────────────────────────────────────────────
 
-/// GET /api/painel/:store_pid/pedidos
-/// Lista pedidos da loja com filtros e paginação.
+/// GET /api/painel/pedidos
 #[debug_handler]
 pub async fn list_orders(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Query(query): Query<OrderListQuery>,
 ) -> Result<Response> {
-    let (_, store, _) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, false).await?;
+    let (_, _) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     let limit = query.limit.unwrap_or(20).min(100);
 
-    // Filtro por status e fulfillment_status
-    let mut db_query = crate::models::_entities::orders::Entity::find()
-        .filter(crate::models::_entities::orders::Column::StoreId.eq(store.id));
+    let mut db_query = crate::models::_entities::orders::Entity::find();
 
     if let Some(ref s) = query.status {
         db_query = db_query.filter(crate::models::_entities::orders::Column::Status.eq(s.as_str()));
@@ -166,7 +127,6 @@ pub async fn list_orders(
         .all(&ctx.db)
         .await?;
 
-    // Para cada pedido, busca o envio associado
     let mut result = vec![];
     for order in &orders {
         let shipping = ShippingModel::find_by_order(&ctx.db, order.id).await?;
@@ -198,21 +158,19 @@ pub async fn list_orders(
     format::json(ApiResponse::paginated(result, cursor, has_more, orders.len()))
 }
 
-/// GET /api/painel/:store_pid/pedidos/:order_pid
-/// Detalhe completo do pedido com itens e envio.
+/// GET /api/painel/pedidos/:order_pid
 #[debug_handler]
 pub async fn get_order(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((store_pid, order_pid)): Path<(Uuid, Uuid)>,
+    Path(order_pid): Path<Uuid>,
 ) -> Result<Response> {
-    let (_, _, _) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, false).await?;
+    let (_, _) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     let order = OrderModel::find_by_pid(&ctx.db, &order_pid).await?;
     let items = OrderModel::get_items(&ctx.db, order.id).await?;
     let shipping = ShippingModel::find_by_order(&ctx.db, order.id).await?;
 
-    // Tenta buscar endereço de entrega
     let shipping_address = if let Some(addr_id) = order.shipping_address_id {
         crate::models::_entities::addresses::Entity::find_by_id(addr_id)
             .one(&ctx.db)
@@ -273,16 +231,15 @@ pub async fn get_order(
     })))
 }
 
-/// PUT /api/painel/:store_pid/pedidos/:order_pid/status
-/// Atualiza status do pedido (status, payment_status, fulfillment_status).
+/// PUT /api/painel/pedidos/:order_pid/status
 #[debug_handler]
 pub async fn update_order_status(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((store_pid, order_pid)): Path<(Uuid, Uuid)>,
+    Path(order_pid): Path<Uuid>,
     Json(params): Json<UpdateOrderStatusParams>,
 ) -> Result<Response> {
-    let (_, _, _) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, true).await?;
+    let (_, _) = require_collab(&ctx.db, &auth.claims.pid, true).await?;
 
     let order = OrderModel::find_by_pid(&ctx.db, &order_pid).await?;
     let mut updated = order;
@@ -308,22 +265,18 @@ pub async fn update_order_status(
 
 // ── Envios ────────────────────────────────────────────────────────────────────
 
-/// POST /api/painel/:store_pid/pedidos/:order_pid/envio
-/// Registra envio (manual ou via provider externo).
+/// POST /api/painel/pedidos/:order_pid/envio
 #[debug_handler]
 pub async fn create_shipping(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((store_pid, order_pid)): Path<(Uuid, Uuid)>,
+    Path(order_pid): Path<Uuid>,
     Json(params): Json<CreateShippingParams>,
 ) -> Result<Response> {
-    let (_, store, _) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, true).await?;
+    let (_, _) = require_collab(&ctx.db, &auth.claims.pid, true).await?;
     let order = OrderModel::find_by_pid(&ctx.db, &order_pid).await?;
 
-    // Tenta usar provider externo se disponível
     let (provider_name, provider_data) = if let Some(_provider) = shipping::provider_for(&params.carrier) {
-        // TODO: chamar provider.create_shipment(...) quando implementado
-        // Por ora registra como manual mesmo com provider configurado
         (Some(params.carrier.as_str()), None)
     } else {
         (None, None)
@@ -332,7 +285,6 @@ pub async fn create_shipping(
     let shipping = ShippingModel::create(
         &ctx.db,
         order.id,
-        store.id,
         &params,
         provider_name,
         provider_data,
@@ -352,21 +304,19 @@ pub async fn create_shipping(
     })))
 }
 
-/// PUT /api/painel/:store_pid/envios/:shipping_pid/status
-/// Atualiza status de um envio (posted, in_transit, delivered, etc.).
+/// PUT /api/painel/envios/:shipping_pid/status
 #[debug_handler]
 pub async fn update_shipping_status(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((store_pid, shipping_pid)): Path<(Uuid, Uuid)>,
+    Path(shipping_pid): Path<Uuid>,
     Json(params): Json<UpdateShippingStatusParams>,
 ) -> Result<Response> {
-    let (_, _, _) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, true).await?;
+    let (_, _) = require_collab(&ctx.db, &auth.claims.pid, true).await?;
 
     let shipping = ShippingModel::find_by_pid(&ctx.db, &shipping_pid).await?;
     let updated = ShippingModel::update_status(&ctx.db, shipping.id, &params).await?;
 
-    // Se o envio foi entregue, atualiza fulfillment do pedido também
     if updated.status == "delivered" {
         let _ = OrderModel::update_fulfillment_status(&ctx.db, updated.order_id, "delivered").await;
     }
@@ -380,18 +330,17 @@ pub async fn update_shipping_status(
     })))
 }
 
-/// POST /api/painel/:store_pid/pedidos/:order_pid/frete
-/// Calcula opções de frete usando um provider externo (ex.: MelhorEnvio).
+/// POST /api/painel/pedidos/:order_pid/frete
 #[debug_handler]
 pub async fn calculate_freight(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((store_pid, _order_pid)): Path<(Uuid, Uuid)>,
+    Path(_order_pid): Path<Uuid>,
     Json(params): Json<CalculateFreightParams>,
 ) -> Result<Response> {
-    let (_, _, _) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, false).await?;
+    let (_, _) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
-    let carrier = "melhor_envio"; // pode vir do body futuramente
+    let carrier = "melhor_envio";
     let Some(provider) = shipping::provider_for(carrier) else {
         return format::json(ApiResponse::success(serde_json::json!({
             "options": [],
@@ -415,21 +364,18 @@ pub async fn calculate_freight(
     }
 }
 
-/// GET /api/painel/:store_pid/envios
-/// Lista todos os envios da loja com filtro de status.
+/// GET /api/painel/envios
 #[debug_handler]
 pub async fn list_shippings(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Query(query): Query<OrderListQuery>,
 ) -> Result<Response> {
-    let (_, store, _) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, false).await?;
+    let (_, _) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     let limit = query.limit.unwrap_or(20).min(100);
     let shippings = ShippingModel::list_for_store(
         &ctx.db,
-        store.id,
         query.status.as_deref(),
         query.cursor,
         limit,
@@ -458,55 +404,53 @@ pub async fn list_shippings(
 
 // ── Colaboradores ─────────────────────────────────────────────────────────────
 
-/// GET /api/painel/:store_pid/colaboradores
+/// GET /api/painel/colaboradores
 #[debug_handler]
 pub async fn list_collaborators(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
 ) -> Result<Response> {
-    let (_, store, collab) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, false).await?;
+    let (_, collab) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     if !collab.can_manage_collaborators() {
         return Err(loco_rs::Error::Unauthorized("Apenas owner/admin podem gerenciar colaboradores".into()));
     }
 
-    let collabs = CollaboratorModel::list_for_store(&ctx.db, store.id).await?;
+    let collabs = CollaboratorModel::list_for_store(&ctx.db).await?;
     format::json(ApiResponse::success(collabs))
 }
 
-/// POST /api/painel/:store_pid/colaboradores
+/// POST /api/painel/colaboradores
 #[debug_handler]
 pub async fn add_collaborator(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Json(params): Json<crate::models::store_collaborators::AddCollaboratorParams>,
 ) -> Result<Response> {
-    let (_, store, collab) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, false).await?;
+    let (_, collab) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     if !collab.can_manage_collaborators() {
         return Err(loco_rs::Error::Unauthorized("Apenas owner/admin podem adicionar colaboradores".into()));
     }
 
-    let new_collab = CollaboratorModel::add_collaborator(&ctx.db, store.id, &params).await?;
+    let new_collab = CollaboratorModel::add_collaborator(&ctx.db, &params).await?;
     format::json(ApiResponse::success(new_collab))
 }
 
-/// DELETE /api/painel/:store_pid/colaboradores/:user_id
+/// DELETE /api/painel/colaboradores/:user_id
 #[debug_handler]
 pub async fn remove_collaborator(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((store_pid, user_id)): Path<(Uuid, i32)>,
+    Path(user_id): Path<i32>,
 ) -> Result<Response> {
-    let (_, store, collab) = require_collab(&ctx.db, &auth.claims.pid, &store_pid, false).await?;
+    let (_, collab) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     if !collab.can_manage_collaborators() {
         return Err(loco_rs::Error::Unauthorized("Apenas owner/admin podem remover colaboradores".into()));
     }
 
-    CollaboratorModel::deactivate(&ctx.db, store.id, user_id).await?;
+    CollaboratorModel::deactivate(&ctx.db, user_id).await?;
     format::json(ApiResponse::<()>::success(()))
 }
 
@@ -517,16 +461,16 @@ pub fn routes() -> Routes {
         // Auth
         .add("/api/painel/auth/login", post(login))
         // Pedidos
-        .add("/api/painel/{store_pid}/pedidos", get(list_orders))
-        .add("/api/painel/{store_pid}/pedidos/{order_pid}", get(get_order))
-        .add("/api/painel/{store_pid}/pedidos/{order_pid}/status", put(update_order_status))
-        .add("/api/painel/{store_pid}/pedidos/{order_pid}/envio", post(create_shipping))
-        .add("/api/painel/{store_pid}/pedidos/{order_pid}/frete", post(calculate_freight))
+        .add("/api/painel/pedidos", get(list_orders))
+        .add("/api/painel/pedidos/{order_pid}", get(get_order))
+        .add("/api/painel/pedidos/{order_pid}/status", put(update_order_status))
+        .add("/api/painel/pedidos/{order_pid}/envio", post(create_shipping))
+        .add("/api/painel/pedidos/{order_pid}/frete", post(calculate_freight))
         // Envios
-        .add("/api/painel/{store_pid}/envios", get(list_shippings))
-        .add("/api/painel/{store_pid}/envios/{shipping_pid}/status", put(update_shipping_status))
+        .add("/api/painel/envios", get(list_shippings))
+        .add("/api/painel/envios/{shipping_pid}/status", put(update_shipping_status))
         // Colaboradores
-        .add("/api/painel/{store_pid}/colaboradores", get(list_collaborators))
-        .add("/api/painel/{store_pid}/colaboradores", post(add_collaborator))
-        .add("/api/painel/{store_pid}/colaboradores/{user_id}", delete(remove_collaborator))
+        .add("/api/painel/colaboradores", get(list_collaborators))
+        .add("/api/painel/colaboradores", post(add_collaborator))
+        .add("/api/painel/colaboradores/{user_id}", delete(remove_collaborator))
 }

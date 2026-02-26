@@ -25,7 +25,6 @@ impl Model {
     /// Cria um novo carrinho (pode ser anônimo via session_id)
     pub async fn create_cart(
         db: &DatabaseConnection,
-        store_id: i32,
         session_id: &str,
         customer_id: Option<i32>,
         email: Option<String>,
@@ -34,7 +33,6 @@ impl Model {
         let now = chrono::Utc::now();
         let cart = carts::ActiveModel {
             pid: ActiveValue::set(Uuid::new_v4()),
-            store_id: ActiveValue::set(store_id),
             customer_id: ActiveValue::set(customer_id),
             session_id: ActiveValue::set(session_id.to_string()),
             status: ActiveValue::set("active".to_string()),
@@ -56,11 +54,9 @@ impl Model {
     /// Busca carrinho ativo por session_id
     pub async fn find_active_by_session(
         db: &DatabaseConnection,
-        store_id: i32,
         session_id: &str,
     ) -> ModelResult<Option<Self>> {
         let cart = Entity::find()
-            .filter(carts::Column::StoreId.eq(store_id))
             .filter(carts::Column::SessionId.eq(session_id))
             .filter(carts::Column::Status.eq("active"))
             .one(db)
@@ -191,12 +187,10 @@ impl Model {
     /// Busca carrinhos abandonados (sem atividade a mais de X minutos)
     pub async fn find_abandoned(
         db: &DatabaseConnection,
-        store_id: i32,
         minutes_threshold: i64,
     ) -> ModelResult<Vec<Self>> {
         let threshold = chrono::Utc::now() - chrono::Duration::minutes(minutes_threshold);
         let carts = Entity::find()
-            .filter(carts::Column::StoreId.eq(store_id))
             .filter(carts::Column::Status.eq("active"))
             .filter(carts::Column::LastActivityAt.lt(threshold))
             .filter(carts::Column::Email.is_not_null())

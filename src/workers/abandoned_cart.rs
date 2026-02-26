@@ -10,7 +10,6 @@ pub struct AbandonedCartWorker {
 
 #[derive(Deserialize, Debug, Serialize)]
 pub struct AbandonedCartWorkerArgs {
-    pub store_id: i32,
     /// Tempo em minutos para considerar carrinho abandonado (default: 60)
     pub threshold_minutes: Option<i64>,
 }
@@ -26,11 +25,10 @@ impl BackgroundWorker<AbandonedCartWorkerArgs> for AbandonedCartWorker {
         let threshold = args.threshold_minutes.unwrap_or(60);
 
         let abandoned_carts =
-            CartModel::find_abandoned(&self.ctx.db, args.store_id, threshold).await?;
+            CartModel::find_abandoned(&self.ctx.db, threshold).await?;
 
         for cart in &abandoned_carts {
             tracing::info!(
-                store_id = args.store_id,
                 cart_id = cart.id,
                 session_id = &cart.session_id,
                 email = cart.email.as_deref().unwrap_or("anon"),
@@ -48,7 +46,6 @@ impl BackgroundWorker<AbandonedCartWorkerArgs> for AbandonedCartWorker {
                 crate::services::analytics::AnalyticsService::new(&redis_url, &sled_path)
             {
                 let event = crate::services::analytics::AnalyticsEvent {
-                    store_id: args.store_id,
                     session_id: cart.session_id.clone(),
                     customer_id: cart.customer_id,
                     event_type: "cart_abandon".to_string(),
@@ -68,13 +65,9 @@ impl BackgroundWorker<AbandonedCartWorkerArgs> for AbandonedCartWorker {
             }
 
             // TODO: Disparar email de recuperação de carrinho via mailer
-            // if let Some(ref email) = cart.email {
-            //     CartRecoveryMailer::send(&self.ctx, email, &cart.recovery_token).await?;
-            // }
         }
 
         tracing::info!(
-            store_id = args.store_id,
             total_abandoned = abandoned_carts.len(),
             "Abandoned cart detection completed"
         );

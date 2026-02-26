@@ -19,20 +19,17 @@ pub struct CartQuery {
     pub session_id: String,
 }
 
-/// POST /api/stores/:store_pid/carts - Cria ou retorna carrinho pela session
+/// POST /api/v1/carts - Cria ou retorna carrinho pela session
 #[debug_handler]
 async fn get_or_create(
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Query(query): Query<CartQuery>,
 ) -> Result<Response> {
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
-
-    let existing = CartModel::find_active_by_session(&ctx.db, store.id, &query.session_id).await?;
+    let existing = CartModel::find_active_by_session(&ctx.db, &query.session_id).await?;
     let cart = if let Some(c) = existing {
         c
     } else {
-        CartModel::create_cart(&ctx.db, store.id, &query.session_id, None, None, None).await?
+        CartModel::create_cart(&ctx.db, &query.session_id, None, None, None).await?
     };
 
     let items = CartModel::get_items(&ctx.db, cart.id).await?;
@@ -43,11 +40,11 @@ async fn get_or_create(
     format::json(ApiResponse::success(response))
 }
 
-/// GET /api/stores/:store_pid/carts/:pid - Busca carrinho por PID
+/// GET /api/v1/carts/:pid - Busca carrinho por PID
 #[debug_handler]
 async fn get_one(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let cart = CartModel::find_by_pid(&ctx.db, &pid).await?;
     let items = CartModel::get_items(&ctx.db, cart.id).await?;
@@ -57,11 +54,11 @@ async fn get_one(
     format::json(ApiResponse::success(response))
 }
 
-/// POST /api/stores/:store_pid/carts/:pid/items - Adiciona item ao carrinho
+/// POST /api/v1/carts/:pid/items - Adiciona item ao carrinho
 #[debug_handler]
 async fn add_item(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<AddToCartParams>,
 ) -> Result<Response> {
     let cart = CartModel::find_by_pid(&ctx.db, &pid).await?;
@@ -82,11 +79,11 @@ async fn add_item(
     format::json(ApiResponse::success(response))
 }
 
-/// PUT /api/stores/:store_pid/carts/:pid/items/:item_id - Atualiza quantidade
+/// PUT /api/v1/carts/:pid/items/:item_id - Atualiza quantidade
 #[debug_handler]
 async fn update_item(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid, item_id)): Path<(Uuid, Uuid, i32)>,
+    Path((pid, item_id)): Path<(Uuid, i32)>,
     Json(params): Json<crate::models::carts::UpdateCartItemParams>,
 ) -> Result<Response> {
     let cart = CartModel::find_by_pid(&ctx.db, &pid).await?;
@@ -105,11 +102,11 @@ async fn update_item(
     format::json(ApiResponse::success(response))
 }
 
-/// DELETE /api/stores/:store_pid/carts/:pid/items/:item_id - Remove item
+/// DELETE /api/v1/carts/:pid/items/:item_id - Remove item
 #[debug_handler]
 async fn remove_item(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid, item_id)): Path<(Uuid, Uuid, i32)>,
+    Path((pid, item_id)): Path<(Uuid, i32)>,
 ) -> Result<Response> {
     let cart = CartModel::find_by_pid(&ctx.db, &pid).await?;
     CartModel::remove_item(&ctx.db, item_id).await?;
@@ -124,7 +121,7 @@ async fn remove_item(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("/api/stores/{store_pid}/carts")
+        .prefix("/api/v1/carts")
         .add("/", post(get_or_create))
         .add("/{pid}", get(get_one))
         .add("/{pid}/items", post(add_item))

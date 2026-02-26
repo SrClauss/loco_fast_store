@@ -17,31 +17,27 @@ use crate::{
     },
 };
 
-/// POST /api/stores/:store_pid/products - Cria um produto
+/// POST /api/v1/products - Cria um produto
 #[debug_handler]
 async fn create(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Json(params): Json<CreateProductParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let product =
-        crate::models::products::Model::create_product(&ctx.db, store.id, &params).await?;
+        crate::models::products::Model::create_product(&ctx.db, &params).await?;
     format::json(ApiResponse::success(ProductResponse::from(product)))
 }
 
-/// GET /api/stores/:store_pid/products - Lista produtos
+/// GET /api/v1/products - Lista produtos
 #[debug_handler]
 async fn list(
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Query(params): Query<ProductListParams>,
 ) -> Result<Response> {
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let products =
-        crate::models::products::Model::list_for_store(&ctx.db, store.id, &params).await?;
+        crate::models::products::Model::list_for_store(&ctx.db, &params).await?;
 
     let limit = params.limit.unwrap_or(20).min(100);
     let has_more = products.len() as u64 >= limit;
@@ -52,11 +48,11 @@ async fn list(
     format::json(ApiResponse::paginated(response, cursor, has_more, count))
 }
 
-/// GET /api/stores/:store_pid/products/:pid - Busca produto detalhado (com variantes e preços)
+/// GET /api/v1/products/:pid - Busca produto detalhado (com variantes e preços)
 #[debug_handler]
 async fn get_one(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let product = crate::models::products::Model::find_by_pid(&ctx.db, &pid).await?;
 
@@ -78,12 +74,12 @@ async fn get_one(
     format::json(ApiResponse::success(response))
 }
 
-/// PUT /api/stores/:store_pid/products/:pid - Atualiza produto
+/// PUT /api/v1/products/:pid - Atualiza produto
 #[debug_handler]
 async fn update(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<UpdateProductParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
@@ -122,12 +118,12 @@ async fn update(
     format::json(ApiResponse::success(ProductResponse::from(updated)))
 }
 
-/// DELETE /api/stores/:store_pid/products/:pid - Soft delete
+/// DELETE /api/v1/products/:pid - Soft delete
 #[debug_handler]
 async fn remove(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
     let product = crate::models::products::Model::find_by_pid(&ctx.db, &pid).await?;
@@ -139,12 +135,12 @@ async fn remove(
     format::json(ApiResponse::<()>::success(()))
 }
 
-/// POST /api/stores/:store_pid/products/:pid/variants - Cria variante
+/// POST /api/v1/products/:pid/variants - Cria variante
 #[debug_handler]
 async fn create_variant(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<CreateVariantParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
@@ -153,15 +149,13 @@ async fn create_variant(
     format::json(ApiResponse::success(VariantResponse::from(variant)))
 }
 
-/// GET /api/stores/:store_pid/products/export/csv - Exporta todos os produtos em CSV
+/// GET /api/v1/products/export/csv - Exporta todos os produtos em CSV
 #[debug_handler]
 async fn export_csv(
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
 ) -> Result<Response> {
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let products =
-        crate::models::products::Model::list_all_for_store(&ctx.db, store.id).await?;
+        crate::models::products::Model::list_all_for_store(&ctx.db).await?;
 
     let mut wtr = csv::Writer::from_writer(Vec::new());
     // Cabeçalho
@@ -204,11 +198,10 @@ async fn export_csv(
         .map_err(|e| Error::string(&e.to_string()))?)
 }
 
-/// GET /api/stores/:store_pid/products/import/template - Gera CSV template para importação em lote
+/// GET /api/v1/products/import/template - Gera CSV template para importação em lote
 #[debug_handler]
 async fn import_template(
     State(_ctx): State<AppContext>,
-    Path(_store_pid): Path<Uuid>,
 ) -> Result<Response> {
     let mut wtr = csv::Writer::from_writer(Vec::new());
     wtr.write_record(&[
@@ -236,17 +229,15 @@ async fn import_template(
         .map_err(|e| Error::string(&e.to_string()))?)
 }
 
-/// POST /api/stores/:store_pid/products/import/csv - Importa produtos em lote via CSV
+/// POST /api/v1/products/import/csv - Importa produtos em lote via CSV
 /// Retorna ZIP com pastas para cada produto (nomeadas pelo slug)
 #[debug_handler]
 async fn import_csv(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
 
     // Lê o arquivo CSV do multipart
     let mut csv_bytes: Option<Vec<u8>> = None;
@@ -335,7 +326,7 @@ async fn import_csv(
             metadata: None,
         };
 
-        match crate::models::products::Model::create_product(&ctx.db, store.id, &params).await {
+        match crate::models::products::Model::create_product(&ctx.db, &params).await {
             Ok(product) => created_slugs.push(product.slug),
             Err(e) => errors.push(format!("Linha {}: {} - {}", i + 2, title, e)),
         }
@@ -363,17 +354,15 @@ async fn import_csv(
         .map_err(|e| Error::string(&e.to_string()))?)
 }
 
-/// POST /api/stores/:store_pid/products/import/images - Upload do ZIP com imagens
+/// POST /api/v1/products/import/images - Upload do ZIP com imagens
 /// O ZIP deve ter subpastas nomeadas com o slug do produto, contendo as imagens
 #[debug_handler]
 async fn import_images(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     mut multipart: Multipart,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
 
     // Lê o arquivo ZIP do multipart
     let mut zip_bytes: Option<Vec<u8>> = None;
@@ -414,11 +403,10 @@ async fn import_images(
     for entry in entries {
         let FileEntry { slug, filename, data } = entry;
 
-        // Busca o produto pelo slug na loja
+        // Busca o produto pelo slug
         use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
         use crate::models::_entities::products;
         let product = products::Entity::find()
-            .filter(products::Column::StoreId.eq(store.id))
             .filter(products::Column::Slug.eq(slug.as_str()))
             .filter(products::Column::DeletedAt.is_null())
             .one(&ctx.db)
@@ -503,7 +491,7 @@ async fn admin_list(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("/api/stores/{store_pid}/products")
+        .prefix("/api/v1/products")
         .add("/", post(create))
         .add("/", get(list))
         .add("/export/csv", get(export_csv))

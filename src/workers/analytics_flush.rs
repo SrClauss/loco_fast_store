@@ -9,9 +9,7 @@ pub struct AnalyticsFlushWorker {
 }
 
 #[derive(Deserialize, Debug, Serialize)]
-pub struct AnalyticsFlushWorkerArgs {
-    pub store_id: i32,
-}
+pub struct AnalyticsFlushWorkerArgs {}
 
 #[async_trait]
 impl BackgroundWorker<AnalyticsFlushWorkerArgs> for AnalyticsFlushWorker {
@@ -19,7 +17,7 @@ impl BackgroundWorker<AnalyticsFlushWorkerArgs> for AnalyticsFlushWorker {
         Self { ctx: ctx.clone() }
     }
 
-    async fn perform(&self, args: AnalyticsFlushWorkerArgs) -> Result<()> {
+    async fn perform(&self, _args: AnalyticsFlushWorkerArgs) -> Result<()> {
         let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1".to_string());
         let sled_path = std::env::var("SLED_PATH").unwrap_or_else(|_| "./data/analytics_sled".to_string());
 
@@ -27,12 +25,11 @@ impl BackgroundWorker<AnalyticsFlushWorkerArgs> for AnalyticsFlushWorker {
             .map_err(|e| loco_rs::Error::Message(format!("Failed to init analytics: {}", e)))?;
 
         let count = analytics
-            .flush_to_sled(args.store_id)
+            .flush_to_sled()
             .await
             .map_err(|e| loco_rs::Error::Message(format!("Failed to flush analytics: {}", e)))?;
 
         tracing::info!(
-            store_id = args.store_id,
             events_flushed = count,
             "Analytics flush worker completed"
         );

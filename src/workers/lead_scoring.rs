@@ -11,7 +11,6 @@ pub struct LeadScoringWorker {
 
 #[derive(Deserialize, Debug, Serialize)]
 pub struct LeadScoringWorkerArgs {
-    pub store_id: i32,
     pub session_id: String,
 }
 
@@ -32,12 +31,11 @@ impl BackgroundWorker<LeadScoringWorkerArgs> for LeadScoringWorker {
             .map_err(|e| loco_rs::Error::Message(format!("Failed to init analytics: {}", e)))?;
 
         let score = analytics
-            .calculate_lead_score(args.store_id, &args.session_id)
+            .calculate_lead_score(&args.session_id)
             .await
             .map_err(|e| loco_rs::Error::Message(format!("Failed to calculate lead score: {}", e)))?;
 
         tracing::info!(
-            store_id = args.store_id,
             session_id = &args.session_id,
             lead_score = score,
             "Lead score calculated"
@@ -64,10 +62,7 @@ impl BackgroundWorker<LeadScoringWorkerArgs> for LeadScoringWorker {
         // Persiste score no Redis para consulta rápida
         if let Ok(client) = redis::Client::open(redis_url.as_str()) {
             if let Ok(mut conn) = client.get_multiplexed_tokio_connection().await {
-                let key = format!(
-                    "analytics:store:{}:session:{}:lead_score",
-                    args.store_id, args.session_id
-                );
+                let key = format!("analytics:session:{}:lead_score", args.session_id);
                 let _ = redis::cmd("SET")
                     .arg(&key)
                     .arg(score.to_string())

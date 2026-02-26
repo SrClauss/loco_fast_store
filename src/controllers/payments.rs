@@ -26,20 +26,12 @@ pub struct CreateAsaasPaymentParams {
 async fn create_payment(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((store_pid, order_pid)): Path<(Uuid, Uuid)>,
+    Path(order_pid): Path<Uuid>,
     Json(params): Json<CreateAsaasPaymentParams>,
 ) -> Result<Response> {
     let _user = crate::models::_entities::users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
         .await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let order = OrderModel::find_by_pid(&ctx.db, &order_pid).await?;
-
-    if order.store_id != store.id {
-        return format::json(ApiResponse::<()>::error(
-            "STORE_MISMATCH",
-            "Pedido não pertence à loja",
-        ));
-    }
 
     let customer = customers::Entity::find_by_id(order.customer_id)
         .one(&ctx.db)
@@ -164,7 +156,6 @@ async fn webhook(
                 if let Ok(analytics) = AnalyticsService::new(&redis_url, &sled_path) {
                     let _ = analytics
                         .track_event(&AnalyticsEvent {
-                            store_id: updated.store_id,
                             session_id,
                             customer_id: Some(updated.customer_id),
                             event_type: "checkout_complete".to_string(),
@@ -199,7 +190,7 @@ async fn list_asaas_webhooks(State(_ctx): State<AppContext>) -> Result<Response>
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api")
-        .add("/stores/{store_pid}/orders/{order_pid}/payments/asaas", post(create_payment))
+        .add("/v1/orders/{order_pid}/payments/asaas", post(create_payment))
         .add("/payments/asaas/webhook", post(webhook))
         .add("/payments/asaas/webhooks", get(list_asaas_webhooks))
 }

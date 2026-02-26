@@ -12,5 +12,4 @@ pub use super::prices::Entity as Prices;
 pub use super::product_images::Entity as ProductImages;
 pub use super::product_variants::Entity as ProductVariants;
 pub use super::products::Entity as Products;
-pub use super::stores::Entity as Stores;
 pub use super::users::Entity as Users;

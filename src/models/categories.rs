@@ -54,13 +54,11 @@ impl Model {
     /// Cria uma nova categoria
     pub async fn create_category(
         db: &DatabaseConnection,
-        store_id: i32,
         params: &CreateCategoryParams,
     ) -> ModelResult<Self> {
         let slug = params.slug.clone().unwrap_or_else(|| slugify(&params.name));
         let category = categories::ActiveModel {
             pid: ActiveValue::set(Uuid::new_v4()),
-            store_id: ActiveValue::set(store_id),
             name: ActiveValue::set(params.name.clone()),
             slug: ActiveValue::set(slug),
             description: ActiveValue::set(params.description.clone()),
@@ -83,14 +81,12 @@ impl Model {
         category.ok_or_else(|| ModelError::EntityNotFound)
     }
 
-    /// Lista categorias da loja (árvore: raízes primeiro)
+    /// Lista categorias (árvore: raízes primeiro)
     pub async fn list_for_store(
         db: &DatabaseConnection,
-        store_id: i32,
         parent_id: Option<i32>,
     ) -> ModelResult<Vec<Self>> {
         let mut query = Entity::find()
-            .filter(categories::Column::StoreId.eq(store_id))
             .filter(categories::Column::DeletedAt.is_null());
 
         if let Some(pid) = parent_id {
@@ -117,14 +113,12 @@ impl Model {
         Ok(children)
     }
 
-    /// Busca por slug dentro da loja
+    /// Busca por slug
     pub async fn find_by_slug(
         db: &DatabaseConnection,
-        store_id: i32,
         slug: &str,
     ) -> ModelResult<Self> {
         let category = Entity::find()
-            .filter(categories::Column::StoreId.eq(store_id))
             .filter(categories::Column::Slug.eq(slug))
             .filter(categories::Column::DeletedAt.is_null())
             .one(db)

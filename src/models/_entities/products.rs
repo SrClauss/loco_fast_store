@@ -11,7 +11,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub pid: Uuid,
-    pub store_id: i32,
     pub title: String,
     pub slug: String,
     pub description: String,
@@ -33,12 +32,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::stores::Entity",
-        from = "Column::StoreId",
-        to = "super::stores::Column::Id"
-    )]
-    Store,
-    #[sea_orm(
         belongs_to = "super::categories::Entity",
         from = "Column::CategoryId",
         to = "super::categories::Column::Id"
@@ -48,12 +41,6 @@ pub enum Relation {
     Variants,
     #[sea_orm(has_many = "super::product_images::Entity")]
     Images,
-}
-
-impl Related<super::stores::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Store.def()
-    }
 }
 
 impl Related<super::categories::Entity> for Entity {
