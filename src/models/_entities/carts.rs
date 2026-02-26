@@ -11,7 +11,6 @@ pub struct Model {
     #[sea_orm(primary_key)]
     pub id: i32,
     pub pid: Uuid,
-    pub store_id: i32,
     pub customer_id: Option<i32>,
     pub session_id: String,
     pub status: String,
@@ -31,12 +30,6 @@ pub struct Model {
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
 pub enum Relation {
     #[sea_orm(
-        belongs_to = "super::stores::Entity",
-        from = "Column::StoreId",
-        to = "super::stores::Column::Id"
-    )]
-    Store,
-    #[sea_orm(
         belongs_to = "super::customers::Entity",
         from = "Column::CustomerId",
         to = "super::customers::Column::Id"
@@ -44,12 +37,6 @@ pub enum Relation {
     Customer,
     #[sea_orm(has_many = "super::cart_items::Entity")]
     Items,
-}
-
-impl Related<super::stores::Entity> for Entity {
-    fn to() -> RelationDef {
-        Relation::Store.def()
-    }
 }
 
 impl Related<super::customers::Entity> for Entity {

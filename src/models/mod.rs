@@ -8,5 +8,4 @@ pub mod orders;
 pub mod product_variants;
 pub mod products;
 pub mod store_collaborators;
-pub mod stores;
 pub mod users;

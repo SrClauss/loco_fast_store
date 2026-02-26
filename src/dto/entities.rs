@@ -1,35 +1,6 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-// ─── Store ───────────────────────────────────────────────
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct StoreResponse {
-    pub pid: Uuid,
-    pub slug: String,
-    pub name: String,
-    pub domain: Option<String>,
-    pub default_currency: String,
-    pub status: String,
-    pub config: serde_json::Value,
-    pub created_at: String,
-}
-
-impl From<crate::models::_entities::stores::Model> for StoreResponse {
-    fn from(m: crate::models::_entities::stores::Model) -> Self {
-        Self {
-            pid: m.pid,
-            slug: m.slug,
-            name: m.name,
-            domain: m.domain,
-            default_currency: m.default_currency,
-            status: m.status,
-            config: m.config,
-            created_at: m.created_at.to_string(),
-        }
-    }
-}
-
 // ─── Category ────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]

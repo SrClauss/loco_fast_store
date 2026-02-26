@@ -77,10 +77,9 @@ fn slugify(title: &str) -> String {
 }
 
 impl Model {
-    /// Gera um slug único para a loja, evitando colisões adicionando sufixo numérico
+    /// Gera um slug único, evitando colisões adicionando sufixo numérico
     pub async fn generate_unique_slug(
         db: &DatabaseConnection,
-        store_id: i32,
         base_slug: &str,
         exclude_id: Option<i32>,
     ) -> ModelResult<String> {
@@ -88,7 +87,6 @@ impl Model {
         let mut counter = 1u32;
         loop {
             let mut query = Entity::find()
-                .filter(products::Column::StoreId.eq(store_id))
                 .filter(products::Column::Slug.eq(candidate.as_str()))
                 .filter(products::Column::DeletedAt.is_null());
             if let Some(id) = exclude_id {
@@ -106,16 +104,14 @@ impl Model {
     /// Cria um novo produto
     pub async fn create_product(
         db: &DatabaseConnection,
-        store_id: i32,
         params: &CreateProductParams,
     ) -> ModelResult<Self> {
         let base_slug = params.slug.clone().unwrap_or_else(|| slugify(&params.title));
-        let slug = Self::generate_unique_slug(db, store_id, &base_slug, None).await?;
+        let slug = Self::generate_unique_slug(db, &base_slug, None).await?;
         let handle = params.handle.clone().unwrap_or_else(|| slug.clone());
 
         let product = products::ActiveModel {
             pid: ActiveValue::set(Uuid::new_v4()),
-            store_id: ActiveValue::set(store_id),
             title: ActiveValue::set(params.title.clone()),
             slug: ActiveValue::set(slug),
             description: ActiveValue::set(params.description.clone().unwrap_or_default()),
@@ -149,16 +145,14 @@ impl Model {
         product.ok_or_else(|| ModelError::EntityNotFound)
     }
 
-    /// Lista produtos da loja com paginação
+    /// Lista produtos com paginação
     pub async fn list_for_store(
         db: &DatabaseConnection,
-        store_id: i32,
         params: &ProductListParams,
     ) -> ModelResult<Vec<Self>> {
         let limit = params.limit.unwrap_or(20).min(100);
 
         let mut query = Entity::find()
-            .filter(products::Column::StoreId.eq(store_id))
             .filter(products::Column::DeletedAt.is_null());
 
         if let Some(ref status) = params.status {
@@ -193,13 +187,11 @@ impl Model {
         Ok(products)
     }
 
-    /// Lista todos os produtos da loja sem paginação (para exportação CSV)
+    /// Lista todos os produtos sem paginação (para exportação CSV)
     pub async fn list_all_for_store(
         db: &DatabaseConnection,
-        store_id: i32,
     ) -> ModelResult<Vec<Self>> {
         let products = Entity::find()
-            .filter(products::Column::StoreId.eq(store_id))
             .filter(products::Column::DeletedAt.is_null())
             .order_by_asc(products::Column::Id)
             .all(db)

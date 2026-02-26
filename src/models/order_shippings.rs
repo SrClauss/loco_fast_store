@@ -31,7 +31,6 @@ impl Model {
     pub async fn create(
         db: &DatabaseConnection,
         order_id: i32,
-        store_id: i32,
         params: &CreateShippingParams,
         provider: Option<&str>,
         provider_data: Option<serde_json::Value>,
@@ -43,7 +42,6 @@ impl Model {
         let shipping = order_shippings::ActiveModel {
             pid: ActiveValue::set(Uuid::new_v4()),
             order_id: ActiveValue::set(order_id),
-            store_id: ActiveValue::set(store_id),
             carrier: ActiveValue::set(params.carrier.clone()),
             service: ActiveValue::set(params.service.clone()),
             tracking_code: ActiveValue::set(params.tracking_code.clone()),
@@ -78,16 +76,14 @@ impl Model {
         Ok(shipping)
     }
 
-    /// Lista envios da loja com filtro opcional de status
+    /// Lista envios com filtro opcional de status
     pub async fn list_for_store(
         db: &DatabaseConnection,
-        store_id: i32,
         status: Option<&str>,
         cursor: Option<i32>,
         limit: u64,
     ) -> ModelResult<Vec<Self>> {
-        let mut q = Entity::find()
-            .filter(order_shippings::Column::StoreId.eq(store_id));
+        let mut q = Entity::find();
 
         if let Some(s) = status {
             q = q.filter(order_shippings::Column::Status.eq(s));

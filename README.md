@@ -1,6 +1,6 @@
 # Loco Fast Store :train:
 
-Plataforma de e-commerce SaaS construída com [Loco](https://loco.rs) — framework web de alta performance em Rust — e painel administrativo em HTML/Alpine.js com Tailwind CSS.
+Plataforma de e-commerce construída com [Loco](https://loco.rs) — framework web de alta performance em Rust — e painel administrativo em HTML/Alpine.js com Tailwind CSS.
 
 ---
 
@@ -56,7 +56,7 @@ O banco de dados é gerenciado pelo [SeaORM](https://www.sea-ql.org/SeaORM/) e s
 ### Diagrama de Relacionamentos (resumido)
 
 ```
-users ──< stores ──< categories
+users ──< categories
                  └──< products ──< product_variants ──< prices
                  │              └──< product_images
                  ├──< collections >──< collection_products >──< products
@@ -69,7 +69,7 @@ users ──< stores ──< categories
 
 ### Tabela: `users`
 
-Usuários administrativos do sistema. Gerada pelo Loco como parte do starter SaaS.
+Usuários administrativos do sistema. Gerada pelo Loco como parte do starter.
 
 | Coluna                        | Tipo                        | Nulo | Padrão | Descrição                                    |
 |-------------------------------|-----------------------------|------|--------|----------------------------------------------|
@@ -90,37 +90,8 @@ Usuários administrativos do sistema. Gerada pelo Loco como parte do starter Saa
 | `updated_at`                  | TIMESTAMPTZ                 | Não  | now()  | Data da última atualização                   |
 
 **Relacionamentos:**
-- Um `user` pode ser dono de muitas `stores`.
+
 - Um `user` pode estar associado a um `customer` (acesso loja).
-
----
-
-### Tabela: `stores`
-
-Representa cada loja dentro da plataforma SaaS multi-tenant.
-
-| Coluna             | Tipo                   | Nulo | Padrão    | Descrição                                        |
-|--------------------|------------------------|------|-----------|--------------------------------------------------|
-| `id`               | INTEGER (PK, auto)     | Não  | —         | Identificador interno                            |
-| `pid`              | UUID (único)           | Não  | —         | Identificador público (UUID v4)                  |
-| `slug`             | VARCHAR(128) (único)   | Não  | —         | Slug único da loja (URL-friendly)                |
-| `name`             | VARCHAR(256)           | Não  | —         | Nome da loja                                     |
-| `domain`           | VARCHAR(256)           | Sim  | NULL      | Domínio customizado da loja                      |
-| `default_currency` | CHAR(3)                | Não  | `"BRL"`   | Moeda padrão (código ISO 4217)                   |
-| `config`           | JSONB                  | Não  | `{}`      | Configurações gerais da loja (JSON)              |
-| `status`           | VARCHAR(20)            | Não  | `"draft"` | Status: `draft`, `active`, `suspended`           |
-| `metadata`         | JSONB                  | Não  | `{}`      | Metadados adicionais (JSON)                      |
-| `owner_id`         | INTEGER (FK → users)   | Não  | —         | Dono da loja                                     |
-| `created_at`       | TIMESTAMPTZ            | Não  | now()     | Data de criação                                  |
-| `updated_at`       | TIMESTAMPTZ            | Não  | now()     | Data da última atualização                       |
-| `deleted_at`       | TIMESTAMPTZ            | Sim  | NULL      | Soft delete (NULL = ativo)                       |
-
-**Índices:**
-- `idx_stores_slug` — em `slug`
-
-**Relacionamentos:**
-- `owner_id` → `users.id` (CASCADE DELETE)
-- Uma `store` possui muitas `categories`, `products`, `collections`, `customers`, `carts` e `orders`.
 
 ---
 
@@ -132,7 +103,6 @@ Categorias hierárquicas para organização dos produtos.
 |---------------|-------------------------|------|--------|---------------------------------------------------|
 | `id`          | INTEGER (PK, auto)      | Não  | —      | Identificador interno                             |
 | `pid`         | UUID (único)            | Não  | —      | Identificador público (UUID v4)                   |
-| `store_id`    | INTEGER (FK → stores)   | Não  | —      | Loja à qual pertence                              |
 | `name`        | VARCHAR(256)            | Não  | —      | Nome da categoria                                 |
 | `slug`        | VARCHAR(256)            | Não  | —      | Slug da categoria                                 |
 | `description` | TEXT                    | Sim  | NULL   | Descrição da categoria                            |
@@ -144,7 +114,6 @@ Categorias hierárquicas para organização dos produtos.
 | `deleted_at`  | TIMESTAMPTZ             | Sim  | NULL   | Soft delete (NULL = ativa)                        |
 
 **Índices:**
-- `idx_categories_store_slug` — em `(store_id, slug)`, único
 
 **Relacionamentos:**
 - `store_id` → `stores.id` (CASCADE DELETE)
@@ -161,7 +130,6 @@ Produto cadastrado em uma loja.
 |-------------------|----------------------------|------|--------------|--------------------------------------------------------|
 | `id`              | INTEGER (PK, auto)         | Não  | —            | Identificador interno                                  |
 | `pid`             | UUID (único)               | Não  | —            | Identificador público (UUID v4)                        |
-| `store_id`        | INTEGER (FK → stores)      | Não  | —            | Loja à qual pertence                                   |
 | `title`           | VARCHAR(512)               | Não  | —            | Título do produto                                      |
 | `slug`            | VARCHAR(512)               | Não  | —            | Slug único por loja (anti-colisão automática)          |
 | `description`     | TEXT                       | Não  | `""`         | Descrição completa do produto                          |
@@ -181,9 +149,6 @@ Produto cadastrado em uma loja.
 | `deleted_at`      | TIMESTAMPTZ                | Sim  | NULL         | Soft delete (NULL = ativo)                             |
 
 **Índices:**
-- `idx_products_store_slug` — em `(store_id, slug)`, único
-- `idx_products_store_status` — em `(store_id, status)`
-- `idx_products_featured` — em `(store_id, featured)`
 
 **Relacionamentos:**
 - `store_id` → `stores.id` (CASCADE DELETE)
@@ -283,7 +248,6 @@ Coleções são agrupamentos curados de produtos (ex.: "Promoção de Verão", "
 |---------------|-------------------------|------|---------|--------------------------------------------------|
 | `id`          | INTEGER (PK, auto)      | Não  | —       | Identificador interno                            |
 | `pid`         | UUID (único)            | Não  | —       | Identificador público (UUID v4)                  |
-| `store_id`    | INTEGER (FK → stores)   | Não  | —       | Loja à qual pertence                             |
 | `title`       | VARCHAR(256)            | Não  | —       | Título da coleção                                |
 | `slug`        | VARCHAR(256)            | Não  | —       | Slug único por loja                              |
 | `description` | TEXT                    | Não  | `""`    | Descrição da coleção                             |
@@ -296,7 +260,6 @@ Coleções são agrupamentos curados de produtos (ex.: "Promoção de Verão", "
 | `deleted_at`  | TIMESTAMPTZ             | Sim  | NULL    | Soft delete (NULL = ativa)                       |
 
 **Índices:**
-- `idx_collections_store_slug` — em `(store_id, slug)`, único
 
 **Relacionamentos:**
 - `store_id` → `stores.id` (CASCADE DELETE)
@@ -333,7 +296,6 @@ Clientes das lojas. Podem ou não ter conta de usuário associada.
 |-----------------------|-------------------------|------|---------|-----------------------------------------------------|
 | `id`                  | INTEGER (PK, auto)      | Não  | —       | Identificador interno                               |
 | `pid`                 | UUID (único)            | Não  | —       | Identificador público (UUID v4)                     |
-| `store_id`            | INTEGER (FK → stores)   | Não  | —       | Loja à qual pertence                                |
 | `email`               | VARCHAR(256)            | Não  | —       | E-mail do cliente (único por loja)                  |
 | `first_name`          | VARCHAR(128)            | Não  | `""`    | Primeiro nome                                       |
 | `last_name`           | VARCHAR(128)            | Não  | `""`    | Sobrenome                                           |
@@ -349,7 +311,6 @@ Clientes das lojas. Podem ou não ter conta de usuário associada.
 | `deleted_at`          | TIMESTAMPTZ             | Sim  | NULL    | Soft delete (NULL = ativo)                          |
 
 **Índices:**
-- `idx_customers_store_email` — em `(store_id, email)`, único
 
 **Relacionamentos:**
 - `store_id` → `stores.id` (CASCADE DELETE)
@@ -395,7 +356,6 @@ Carrinhos de compra, ativos ou abandonados.
 |-------------------|----------------------------|------|------------|----------------------------------------------------|
 | `id`              | INTEGER (PK, auto)         | Não  | —          | Identificador interno                              |
 | `pid`             | UUID (único)               | Não  | —          | Identificador público (UUID v4)                    |
-| `store_id`        | INTEGER (FK → stores)      | Não  | —          | Loja à qual pertence                               |
 | `customer_id`     | INTEGER (FK → customers)   | Sim  | NULL       | Cliente (NULL = carrinho anônimo)                  |
 | `session_id`      | VARCHAR(256)               | Não  | —          | ID de sessão do visitante                          |
 | `status`          | VARCHAR(20)                | Não  | `"active"` | Status: `active`, `abandoned`, `completed`         |
@@ -414,7 +374,6 @@ Carrinhos de compra, ativos ou abandonados.
 | `updated_at`      | TIMESTAMPTZ                | Não  | now()      | Data da última atualização                         |
 
 **Índices:**
-- `idx_carts_session` — em `(store_id, session_id)`
 - `idx_carts_abandoned` — em `(status, last_activity_at)` (para job de carrinhos abandonados)
 
 **Relacionamentos:**
@@ -458,7 +417,6 @@ Pedidos realizados na loja.
 |----------------------|-----------------------------|------|-------------|----------------------------------------------------------|
 | `id`                 | INTEGER (PK, auto)          | Não  | —           | Identificador interno                                    |
 | `pid`                | UUID (único)                | Não  | —           | Identificador público (UUID v4)                          |
-| `store_id`           | INTEGER (FK → stores)       | Não  | —           | Loja à qual pertence                                     |
 | `customer_id`        | INTEGER (FK → customers)    | Não  | —           | Cliente que realizou o pedido                            |
 | `cart_id`            | INTEGER (FK → carts)        | Sim  | NULL        | Carrinho de origem (referência histórica)                |
 | `order_number`       | VARCHAR(64) (único)         | Não  | —           | Número do pedido visível ao cliente (ex.: `#1001`)       |
@@ -484,7 +442,6 @@ Pedidos realizados na loja.
 | `updated_at`         | TIMESTAMPTZ                 | Não  | now()       | Data da última atualização                               |
 
 **Índices:**
-- `idx_orders_store_created` — em `(store_id, created_at)`
 - `idx_orders_customer` — em `customer_id`
 
 **Relacionamentos:**

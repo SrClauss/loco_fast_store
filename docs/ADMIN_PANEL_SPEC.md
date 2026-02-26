@@ -101,43 +101,14 @@ assets/
 </div>
 ```
 
-### 3. Gestão de Lojas (`/stores`)
-**Rotas da API:**
-- `GET /api/stores` - Listar lojas do usuário
-- `GET /api/stores/:pid` - Detalhes da loja
-- `POST /api/stores` - Criar loja
-- `PUT /api/stores/:pid` - Atualizar loja
-
-**Campos do formulário:**
-- Nome da loja
-- Slug (URL amigável)
-- Descrição
-- Status (active/inactive)
-- Logo (upload via presigned URL)
-- Configurações de pagamento
-- Configurações de envio
-
-**Template Tera exemplo:**
-```html
-{% extends "layouts/base.html" %}
-{% block content %}
-<div x-data="storeForm({{ store | json_encode | safe }})">
-  <form @submit.prevent="saveStore">
-    <input x-model="form.name" type="text" />
-    <button type="submit" :disabled="loading">Salvar</button>
-  </form>
-</div>
-{% endblock %}
-```
-
 ### 4. Gestão de Produtos (`/products`)
 **Rotas da API:**
-- `GET /api/stores/:store_pid/products` - Listar produtos
-- `GET /api/stores/:store_pid/products/:pid` - Detalhes
-- `POST /api/stores/:store_pid/products` - Criar
-- `PUT /api/stores/:store_pid/products/:pid` - Atualizar
-- `DELETE /api/stores/:store_pid/products/:pid` - Remover
-- `POST /api/stores/:store_pid/products/:pid/variants` - Criar variante
+- `GET /api/v1/products` - Listar produtos
+- `GET /api/v1/products/:pid` - Detalhes
+- `POST /api/v1/products` - Criar
+- `PUT /api/v1/products/:pid` - Atualizar
+- `DELETE /api/v1/products/:pid` - Remover
+- `POST /api/v1/products/:pid/variants` - Criar variante
 
 **Funcionalidades:**
 - Listagem com paginação (cursor-based)
@@ -164,10 +135,10 @@ Alpine.store('products', {
 
 ### 5. Gestão de Categorias (`/categories`)
 **Rotas da API:**
-- `GET /api/stores/:store_pid/categories` - Listar
-- `POST /api/stores/:store_pid/categories` - Criar
-- `PUT /api/stores/:store_pid/categories/:pid` - Atualizar
-- `DELETE /api/stores/:store_pid/categories/:pid` - Remover
+- `GET /api/v1/categories` - Listar
+- `POST /api/v1/categories` - Criar
+- `PUT /api/v1/categories/:pid` - Atualizar
+- `DELETE /api/v1/categories/:pid` - Remover
 
 **Funcionalidades:**
 - Árvore hierárquica (categorias pai/filho)
@@ -177,10 +148,10 @@ Alpine.store('products', {
 
 ### 6. Gestão de Coleções (`/collections`)
 **Rotas da API:**
-- `GET /api/stores/:store_pid/collections` - Listar
-- `POST /api/stores/:store_pid/collections` - Criar
-- `POST /api/stores/:store_pid/collections/:pid/products` - Adicionar produto
-- `DELETE /api/stores/:store_pid/collections/:pid/products/:product_pid` - Remover
+- `GET /api/v1/collections` - Listar
+- `POST /api/v1/collections` - Criar
+- `POST /api/v1/collections/:pid/products` - Adicionar produto
+- `DELETE /api/v1/collections/:pid/products/:product_pid` - Remover
 
 **Funcionalidades:**
 - Adicionar/remover produtos
@@ -189,9 +160,9 @@ Alpine.store('products', {
 
 ### 7. Gestão de Pedidos (`/orders`)
 **Rotas da API:**
-- `GET /api/stores/:store_pid/orders` - Listar
-- `GET /api/stores/:store_pid/orders/:pid` - Detalhes
-- `PUT /api/stores/:store_pid/orders/:pid/status` - Atualizar status
+- `GET /api/v1/orders` - Listar
+- `GET /api/v1/orders/:pid` - Detalhes
+- `PUT /api/v1/orders/:pid/status` - Atualizar status
 
 **Funcionalidades:**
 - Listagem com filtros (status, data, cliente)
@@ -206,10 +177,10 @@ Alpine.store('products', {
 
 ### 8. Gestão de Clientes (`/customers`)
 **Rotas da API:**
-- `GET /api/stores/:store_pid/customers` - Listar
-- `GET /api/stores/:store_pid/customers/:pid` - Detalhes
-- `PUT /api/stores/:store_pid/customers/:pid` - Atualizar
-- `POST /api/stores/:store_pid/customers/:pid/addresses` - Adicionar endereço
+- `GET /api/v1/customers` - Listar
+- `GET /api/v1/customers/:pid` - Detalhes
+- `PUT /api/v1/customers/:pid` - Atualizar
+- `POST /api/v1/customers/:pid/addresses` - Adicionar endereço
 
 **Funcionalidades:**
 - Histórico de compras
@@ -228,17 +199,17 @@ Alpine.store('products', {
 
 ### 10. Carrinho de Compras (Info)
 **Rotas da API:**
-- `POST /api/stores/:store_pid/carts` - Criar/buscar carrinho
-- `GET /api/stores/:store_pid/carts/:pid` - Detalhes
-- `POST /api/stores/:store_pid/carts/:pid/items` - Adicionar item
-- `PUT /api/stores/:store_pid/carts/:pid/items/:item_id` - Atualizar quantidade
-- `DELETE /api/stores/:store_pid/carts/:pid/items/:item_id` - Remover item
+- `POST /api/v1/carts` - Criar/buscar carrinho
+- `GET /api/v1/carts/:pid` - Detalhes
+- `POST /api/v1/carts/:pid/items` - Adicionar item
+- `PUT /api/v1/carts/:pid/items/:item_id` - Atualizar quantidade
+- `DELETE /api/v1/carts/:pid/items/:item_id` - Remover item
 
 *(Esta funcionalidade é principalmente no frontend da loja, não no admin)*
 
 ### 11. Pagamentos (Info)
 **Rotas da API (Asaas):**
-- `POST /api/stores/:store_pid/orders/:order_pid/payments/asaas` - Criar pagamento
+- `POST /api/v1/orders/:order_pid/payments/asaas` - Criar pagamento
 - `POST /api/payments/asaas/webhook` - Receber notificação
 - `GET /api/payments/asaas/webhooks` - Listar webhooks configurados
 
@@ -512,62 +483,62 @@ PUT    /api/stores/:pid
 
 ### Produtos
 ```
-POST   /api/stores/:store_pid/products
-GET    /api/stores/:store_pid/products
-GET    /api/stores/:store_pid/products/:pid
-PUT    /api/stores/:store_pid/products/:pid
-DELETE /api/stores/:store_pid/products/:pid
-POST   /api/stores/:store_pid/products/:pid/variants
+POST   /api/v1/products
+GET    /api/v1/products
+GET    /api/v1/products/:pid
+PUT    /api/v1/products/:pid
+DELETE /api/v1/products/:pid
+POST   /api/v1/products/:pid/variants
 ```
 
 ### Categorias
 ```
-POST   /api/stores/:store_pid/categories
-GET    /api/stores/:store_pid/categories
-GET    /api/stores/:store_pid/categories/:pid
-PUT    /api/stores/:store_pid/categories/:pid
-DELETE /api/stores/:store_pid/categories/:pid
+POST   /api/v1/categories
+GET    /api/v1/categories
+GET    /api/v1/categories/:pid
+PUT    /api/v1/categories/:pid
+DELETE /api/v1/categories/:pid
 ```
 
 ### Coleções
 ```
-POST   /api/stores/:store_pid/collections
-GET    /api/stores/:store_pid/collections
-GET    /api/stores/:store_pid/collections/:pid
-POST   /api/stores/:store_pid/collections/:pid/products
-DELETE /api/stores/:store_pid/collections/:pid/products/:product_pid
+POST   /api/v1/collections
+GET    /api/v1/collections
+GET    /api/v1/collections/:pid
+POST   /api/v1/collections/:pid/products
+DELETE /api/v1/collections/:pid/products/:product_pid
 ```
 
 ### Carrinhos
 ```
-POST   /api/stores/:store_pid/carts
-GET    /api/stores/:store_pid/carts/:pid
-POST   /api/stores/:store_pid/carts/:pid/items
-PUT    /api/stores/:store_pid/carts/:pid/items/:item_id
-DELETE /api/stores/:store_pid/carts/:pid/items/:item_id
+POST   /api/v1/carts
+GET    /api/v1/carts/:pid
+POST   /api/v1/carts/:pid/items
+PUT    /api/v1/carts/:pid/items/:item_id
+DELETE /api/v1/carts/:pid/items/:item_id
 ```
 
 ### Pedidos
 ```
-POST   /api/stores/:store_pid/orders
-GET    /api/stores/:store_pid/orders
-GET    /api/stores/:store_pid/orders/:pid
-PUT    /api/stores/:store_pid/orders/:pid/status
+POST   /api/v1/orders
+GET    /api/v1/orders
+GET    /api/v1/orders/:pid
+PUT    /api/v1/orders/:pid/status
 ```
 
 ### Clientes
 ```
-POST   /api/stores/:store_pid/customers
-GET    /api/stores/:store_pid/customers
-GET    /api/stores/:store_pid/customers/:pid
-PUT    /api/stores/:store_pid/customers/:pid
-POST   /api/stores/:store_pid/customers/:pid/addresses
-GET    /api/stores/:store_pid/customers/:pid/addresses
+POST   /api/v1/customers
+GET    /api/v1/customers
+GET    /api/v1/customers/:pid
+PUT    /api/v1/customers/:pid
+POST   /api/v1/customers/:pid/addresses
+GET    /api/v1/customers/:pid/addresses
 ```
 
 ### Pagamentos
 ```
-POST   /api/stores/:store_pid/orders/:order_pid/payments/asaas
+POST   /api/v1/orders/:order_pid/payments/asaas
 POST   /api/payments/asaas/webhook
 GET    /api/payments/asaas/webhooks
 ```

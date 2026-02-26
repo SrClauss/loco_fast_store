@@ -20,50 +20,46 @@ pub struct AddProductParams {
     pub sort_order: Option<i32>,
 }
 
-/// POST /api/stores/:store_pid/collections
+/// POST /api/v1/collections
 #[debug_handler]
 async fn create(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Json(params): Json<CreateCollectionParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let collection =
-        CollectionModel::create_collection(&ctx.db, store.id, &params).await?;
+        CollectionModel::create_collection(&ctx.db, &params).await?;
     format::json(ApiResponse::success(CollectionResponse::from(collection)))
 }
 
-/// GET /api/stores/:store_pid/collections
+/// GET /api/v1/collections
 #[debug_handler]
 async fn list(
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
 ) -> Result<Response> {
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
-    let collections = CollectionModel::list_for_store(&ctx.db, store.id).await?;
+    let collections = CollectionModel::list_for_store(&ctx.db).await?;
     let response: Vec<CollectionResponse> =
         collections.into_iter().map(CollectionResponse::from).collect();
     format::json(ApiResponse::success(response))
 }
 
-/// GET /api/stores/:store_pid/collections/:pid
+/// GET /api/v1/collections/:pid
 #[debug_handler]
 async fn get_one(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let collection = CollectionModel::find_by_pid(&ctx.db, &pid).await?;
     format::json(ApiResponse::success(CollectionResponse::from(collection)))
 }
 
-/// POST /api/stores/:store_pid/collections/:pid/products - Adiciona produto
+/// POST /api/v1/collections/:pid/products - Adiciona produto
 #[debug_handler]
 async fn add_product(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<AddProductParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
@@ -74,12 +70,12 @@ async fn add_product(
     format::json(ApiResponse::<()>::success(()))
 }
 
-/// DELETE /api/stores/:store_pid/collections/:pid/products/:product_pid
+/// DELETE /api/v1/collections/:pid/products/:product_pid
 #[debug_handler]
 async fn remove_product(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid, product_pid)): Path<(Uuid, Uuid, Uuid)>,
+    Path((pid, product_pid)): Path<(Uuid, Uuid)>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
     let collection = CollectionModel::find_by_pid(&ctx.db, &pid).await?;
@@ -91,7 +87,7 @@ async fn remove_product(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("/api/stores/{store_pid}/collections")
+        .prefix("/api/v1/collections")
         .add("/", post(create))
         .add("/", get(list))
         .add("/{pid}", get(get_one))

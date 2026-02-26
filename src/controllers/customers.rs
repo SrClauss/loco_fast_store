@@ -22,43 +22,38 @@ pub struct CustomerListQuery {
     pub email: Option<String>,
 }
 
-/// POST /api/stores/:store_pid/customers
+/// POST /api/v1/customers
 #[debug_handler]
 async fn create(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Json(params): Json<CreateCustomerParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let customer =
-        crate::models::customers::Model::create_customer(&ctx.db, store.id, &params).await?;
+        crate::models::customers::Model::create_customer(&ctx.db, &params).await?;
     format::json(ApiResponse::success(CustomerResponse::from(customer)))
 }
 
-/// GET /api/stores/:store_pid/customers
+/// GET /api/v1/customers
 #[debug_handler]
 async fn list(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Query(query): Query<CustomerListQuery>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
 
     // Se buscar por email diretamente
     if let Some(email) = query.email {
         let customer =
-            crate::models::customers::Model::find_by_email(&ctx.db, store.id, &email).await?;
+            crate::models::customers::Model::find_by_email(&ctx.db, &email).await?;
         return format::json(ApiResponse::success(vec![CustomerResponse::from(customer)]));
     }
 
     let limit = query.limit.unwrap_or(20);
     let customers = crate::models::customers::Model::list_for_store(
         &ctx.db,
-        store.id,
         query.cursor,
         limit,
     )
@@ -73,22 +68,22 @@ async fn list(
     format::json(ApiResponse::paginated(response, cursor, has_more, count))
 }
 
-/// GET /api/stores/:store_pid/customers/:pid
+/// GET /api/v1/customers/:pid
 #[debug_handler]
 async fn get_one(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let customer = crate::models::customers::Model::find_by_pid(&ctx.db, &pid).await?;
     format::json(ApiResponse::success(CustomerResponse::from(customer)))
 }
 
-/// PUT /api/stores/:store_pid/customers/:pid
+/// PUT /api/v1/customers/:pid
 #[debug_handler]
 async fn update(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<UpdateCustomerParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
@@ -115,11 +110,11 @@ async fn update(
     format::json(ApiResponse::success(CustomerResponse::from(updated)))
 }
 
-/// POST /api/stores/:store_pid/customers/:pid/addresses
+/// POST /api/v1/customers/:pid/addresses
 #[debug_handler]
 async fn add_address(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<CreateAddressParams>,
 ) -> Result<Response> {
     let customer = crate::models::customers::Model::find_by_pid(&ctx.db, &pid).await?;
@@ -128,11 +123,11 @@ async fn add_address(
     format::json(ApiResponse::success(AddressResponse::from(address)))
 }
 
-/// GET /api/stores/:store_pid/customers/:pid/addresses
+/// GET /api/v1/customers/:pid/addresses
 #[debug_handler]
 async fn list_addresses(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let customer = crate::models::customers::Model::find_by_pid(&ctx.db, &pid).await?;
     let addresses =
@@ -187,7 +182,7 @@ async fn admin_list(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("/api/stores/{store_pid}/customers")
+        .prefix("/api/v1/customers")
         .add("/", post(create))
         .add("/", get(list))
         .add("/{pid}", get(get_one))

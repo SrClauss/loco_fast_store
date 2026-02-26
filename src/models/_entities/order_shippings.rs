@@ -10,7 +10,6 @@ pub struct Model {
     pub id: i32,
     pub pid: Uuid,
     pub order_id: i32,
-    pub store_id: i32,
     pub carrier: String,
     pub service: Option<String>,
     pub tracking_code: Option<String>,
@@ -36,17 +35,8 @@ pub enum Relation {
         to = "super::orders::Column::Id"
     )]
     Order,
-    #[sea_orm(
-        belongs_to = "super::stores::Entity",
-        from = "Column::StoreId",
-        to = "super::stores::Column::Id"
-    )]
-    Store,
 }
 
 impl Related<super::orders::Entity> for Entity {
     fn to() -> RelationDef { Relation::Order.def() }
-}
-impl Related<super::stores::Entity> for Entity {
-    fn to() -> RelationDef { Relation::Store.def() }
 }

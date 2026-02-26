@@ -107,17 +107,17 @@ impl UploadService {
     }
 
     /// Gera key para imagem de produto
-    pub fn product_image_key(store_id: i32, product_pid: &str, filename: &str) -> String {
-        format!("stores/{}/products/{}/{}", store_id, product_pid, filename)
+    pub fn product_image_key(product_pid: &str, filename: &str) -> String {
+        format!("products/{}/{}", product_pid, filename)
     }
 
     /// Gera key para imagem de categoria
-    pub fn category_image_key(store_id: i32, category_pid: &str, filename: &str) -> String {
-        format!("stores/{}/categories/{}/{}", store_id, category_pid, filename)
+    pub fn category_image_key(category_pid: &str, filename: &str) -> String {
+        format!("categories/{}/{}", category_pid, filename)
     }
 
-    /// Gera key para assets da loja (logo, favicon, etc)
-    pub fn store_asset_key(store_id: i32, filename: &str) -> String {
-        format!("stores/{}/assets/{}", store_id, filename)
+    /// Gera key para assets (logo, favicon, etc)
+    pub fn store_asset_key(filename: &str) -> String {
+        format!("assets/{}", filename)
     }
 }

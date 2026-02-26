@@ -70,7 +70,6 @@ impl Hooks for App {
             .add_route(controllers::products::admin_routes())
             .add_route(controllers::orders::admin_routes())
             .add_route(controllers::customers::admin_routes())
-            .add_route(controllers::stores::routes())
             .add_route(controllers::products::routes())
             .add_route(controllers::categories::routes())
             .add_route(controllers::carts::routes())

@@ -1,6 +1,6 @@
 # Loco Fast Store — SDK Alpine.js: Contrato de Implementação de Frontend
 
-> **Uso interno.** Este documento descreve o esquema completo de consumo da API da loja usando Alpine.js e o arquivo `store-sdk.js`. Ao adaptar uma nova loja basta seguir este contrato: importar o Alpine.js, configurar o `STORE_PID` e usar os componentes prontos.
+> **Uso interno.** Este documento descreve o esquema completo de consumo da API da loja usando Alpine.js e o arquivo `store-sdk.js`. Ao adaptar uma nova loja basta seguir este contrato: importar o Alpine.js, configurar o `API` e usar os componentes prontos.
 
 ---
 
@@ -29,7 +29,7 @@ Apenas **dois arquivos** precisam ser importados no HTML da loja:
 
 <!-- Configuração da loja (antes do SDK) -->
 <script>
-  window.STORE_PID = 'uuid-da-sua-loja'; // ← único ajuste necessário
+  window.API = 'uuid-da-sua-loja'; // ← único ajuste necessário
 </script>
 
 <!-- SDK da loja -->
@@ -38,7 +38,7 @@ Apenas **dois arquivos** precisam ser importados no HTML da loja:
 
 > **Tera:** use `{{ store.pid }}` para injetar o UUID diretamente:
 > ```html
-> <script>window.STORE_PID = '{{ store.pid }}';</script>
+> <script>window.API = '{{ store.pid }}';</script>
 > ```
 
 ### 1.2 Toast de notificações (obrigatório no layout)
@@ -72,7 +72,7 @@ Cole este bloco uma única vez no layout base (normalmente em `base.html`):
 
 | Item | Detalhe |
 |------|---------|
-| **Base URL** | `/api/stores/{STORE_PID}/...` |
+| **Base URL** | `/api/v1/...` |
 | **Envelope de resposta** | `{ ok: bool, data: T, meta?: { cursor, has_more, count } }` |
 | **Valores monetários** | Centavos inteiros. Ex.: `1990` = R$ 19,90. Use `StoreSDK.formatMoney(1990)` |
 | **IDs públicos** | UUID no campo `pid`. Nunca use o campo `id` (interno) |
@@ -706,7 +706,7 @@ StoreSDK.slugify('Meu Produto Incrível');  // "meu-produto-incrivel"
 ### Autenticação de cliente
 
 ```
-POST /api/stores/{store_pid}/auth/register
+POST /api/v1/auth/register
 Body: {
   "email": "string",
   "password": "string",
@@ -717,15 +717,15 @@ Body: {
 }
 Response: { "token": "string", "customer": { pid, email, first_name, ... } }
 
-POST /api/stores/{store_pid}/auth/login
+POST /api/v1/auth/login
 Body: { "email": "string", "password": "string" }
 Response: { "token": "string", "customer": { pid, email, first_name, ... } }
 
-POST /api/stores/{store_pid}/auth/logout
+POST /api/v1/auth/logout
 Header: X-Customer-Token: <token>
 Response: { "ok": true }
 
-GET /api/stores/{store_pid}/auth/me
+GET /api/v1/auth/me
 Header: X-Customer-Token: <token>
 Response: { pid, email, first_name, last_name, phone, has_account, created_at }
 ```
@@ -733,66 +733,66 @@ Response: { pid, email, first_name, last_name, phone, has_account, created_at }
 ### Produtos
 
 ```
-GET  /api/stores/{store_pid}/products
+GET  /api/v1/products
      ?status=active&category_id=1&featured=true&q=texto&limit=20&cursor=xxx
 Response: { ok, data: Product[], meta: { cursor, has_more, count } }
 
-GET  /api/stores/{store_pid}/products/{pid}
+GET  /api/v1/products/{pid}
 Response: { ok, data: Product & { variants: Variant[] } }
 
-GET  /api/stores/{store_pid}/products/export/csv
+GET  /api/v1/products/export/csv
 Response: text/csv (download)
 
-GET  /api/stores/{store_pid}/products/import/template
+GET  /api/v1/products/import/template
 Response: text/csv (download do template)
 ```
 
 ### Categorias
 
 ```
-GET  /api/stores/{store_pid}/categories
+GET  /api/v1/categories
      ?parent_id=1
 Response: { ok, data: Category[] }
 
-GET  /api/stores/{store_pid}/categories/{pid}
+GET  /api/v1/categories/{pid}
 Response: { ok, data: Category }
 ```
 
 ### Coleções
 
 ```
-GET  /api/stores/{store_pid}/collections
+GET  /api/v1/collections
 Response: { ok, data: Collection[] }
 
-GET  /api/stores/{store_pid}/collections/{pid}
+GET  /api/v1/collections/{pid}
 Response: { ok, data: Collection & { products: Product[] } }
 ```
 
 ### Carrinho
 
 ```
-POST /api/stores/{store_pid}/carts?session_id=xxx
+POST /api/v1/carts?session_id=xxx
 Response: { ok, data: Cart & { items: CartItem[] } }
 
-GET  /api/stores/{store_pid}/carts/{pid}
+GET  /api/v1/carts/{pid}
 Response: { ok, data: Cart & { items: CartItem[] } }
 
-POST /api/stores/{store_pid}/carts/{pid}/items
+POST /api/v1/carts/{pid}/items
 Body: { "variant_id": 1, "quantity": 2 }
 Response: { ok, data: Cart & { items: CartItem[] } }
 
-PUT  /api/stores/{store_pid}/carts/{pid}/items/{item_id}
+PUT  /api/v1/carts/{pid}/items/{item_id}
 Body: { "quantity": 3 }    (quantity: 0 remove o item)
 Response: { ok, data: Cart & { items: CartItem[] } }
 
-DELETE /api/stores/{store_pid}/carts/{pid}/items/{item_id}
+DELETE /api/v1/carts/{pid}/items/{item_id}
 Response: { ok, data: Cart & { items: CartItem[] } }
 ```
 
 ### Pedidos
 
 ```
-POST /api/stores/{store_pid}/orders
+POST /api/v1/orders
 Header: X-Customer-Token: <token>
 Body: {
   "customer_id": 1,
@@ -803,27 +803,27 @@ Body: {
 }
 Response: { ok, data: Order & { items: OrderItem[] } }
 
-GET  /api/stores/{store_pid}/orders/{pid}
+GET  /api/v1/orders/{pid}
 Response: { ok, data: Order & { items: OrderItem[] } }
 ```
 
 ### Clientes
 
 ```
-GET  /api/stores/{store_pid}/customers/{pid}
+GET  /api/v1/customers/{pid}
 Header: X-Customer-Token: <token>
 Response: { ok, data: Customer }
 
-PUT  /api/stores/{store_pid}/customers/{pid}
+PUT  /api/v1/customers/{pid}
 Header: X-Customer-Token: <token>
 Body: { first_name?, last_name?, phone?, marketing_consent? }
 Response: { ok, data: Customer }
 
-GET  /api/stores/{store_pid}/customers/{pid}/addresses
+GET  /api/v1/customers/{pid}/addresses
 Header: X-Customer-Token: <token>
 Response: { ok, data: Address[] }
 
-POST /api/stores/{store_pid}/customers/{pid}/addresses
+POST /api/v1/customers/{pid}/addresses
 Header: X-Customer-Token: <token>
 Body: {
   "first_name": "string",
@@ -937,7 +937,7 @@ type Order = {
   <title>{% block title %}{{ store.name }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/css/output.css">
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script>window.STORE_PID = '{{ store.pid }}';</script>
+  <script>window.API = '{{ store.pid }}';</script>
   <script src="/static/js/store-sdk.js"></script>
 </head>
 <body class="bg-white text-gray-900">
@@ -1042,7 +1042,7 @@ type Order = {
 
 ## 8. Exemplo com framework SPA (Vite + Vanilla)
 
-Para projetos que **não usam Tera**, importe o SDK via tag `<script>` e configure o `STORE_PID` antes:
+Para projetos que **não usam Tera**, importe o SDK via tag `<script>` e configure o `API` antes:
 
 ### `index.html`
 
@@ -1053,7 +1053,7 @@ Para projetos que **não usam Tera**, importe o SDK via tag `<script>` e configu
   <meta charset="UTF-8">
   <title>Minha Loja</title>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script>window.STORE_PID = 'uuid-da-loja-aqui';</script>
+  <script>window.API = 'uuid-da-loja-aqui';</script>
   <script src="/js/store-sdk.js"></script>
 </head>
 <body>
@@ -1084,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ## Checklist de adaptação de nova loja
 
-- [ ] Definir `window.STORE_PID` com o UUID da loja
+- [ ] Definir `window.API` com o UUID da loja
 - [ ] Importar Alpine.js antes do `store-sdk.js`
 - [ ] Adicionar o bloco de toasts no layout base
 - [ ] Adicionar o componente `CartDrawer` no layout

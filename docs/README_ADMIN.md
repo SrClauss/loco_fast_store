@@ -41,8 +41,6 @@
 - `assets/views/admin/customers/detail.html`
 
 #### Lojas
-- `assets/views/admin/stores/list.html`
-- `assets/views/admin/stores/form.html`
 
 #### Analytics
 - `assets/views/admin/analytics/index.html`
@@ -219,7 +217,6 @@ loco_fast_store/
 │           ├── customers/
 │           │   ├── list.html.tera ✅
 │           │   └── detail.html.tera ⏳
-│           ├── stores/
 │           │   ├── list.html.tera ⏳
 │           │   └── form.html.tera ⏳
 │           └── analytics/

@@ -43,13 +43,11 @@ impl Model {
     /// Cria uma nova coleção
     pub async fn create_collection(
         db: &DatabaseConnection,
-        store_id: i32,
         params: &CreateCollectionParams,
     ) -> ModelResult<Self> {
         let slug = params.slug.clone().unwrap_or_else(|| slugify(&params.name));
         let collection = collections::ActiveModel {
             pid: ActiveValue::set(Uuid::new_v4()),
-            store_id: ActiveValue::set(store_id),
             title: ActiveValue::set(params.name.clone()),
             slug: ActiveValue::set(slug),
             description: ActiveValue::set(params.description.clone().unwrap_or_default()),
@@ -70,13 +68,11 @@ impl Model {
         collection.ok_or_else(|| ModelError::EntityNotFound)
     }
 
-    /// Lista coleções da loja
+    /// Lista coleções
     pub async fn list_for_store(
         db: &DatabaseConnection,
-        store_id: i32,
     ) -> ModelResult<Vec<Self>> {
         let collections = Entity::find()
-            .filter(collections::Column::StoreId.eq(store_id))
             .filter(collections::Column::DeletedAt.is_null())
             .order_by_asc(collections::Column::Title)
             .all(db)

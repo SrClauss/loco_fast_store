@@ -20,53 +20,49 @@ pub struct CategoryQuery {
     pub parent_id: Option<i32>,
 }
 
-/// POST /api/stores/:store_pid/categories - Cria categoria
+/// POST /api/v1/categories - Cria categoria
 #[debug_handler]
 async fn create(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Json(params): Json<CreateCategoryParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let category =
-        crate::models::categories::Model::create_category(&ctx.db, store.id, &params).await?;
+        crate::models::categories::Model::create_category(&ctx.db, &params).await?;
     format::json(ApiResponse::success(CategoryResponse::from(category)))
 }
 
-/// GET /api/stores/:store_pid/categories - Lista categorias
+/// GET /api/v1/categories - Lista categorias
 #[debug_handler]
 async fn list(
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Query(query): Query<CategoryQuery>,
 ) -> Result<Response> {
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
     let categories =
-        crate::models::categories::Model::list_for_store(&ctx.db, store.id, query.parent_id)
+        crate::models::categories::Model::list_for_store(&ctx.db, query.parent_id)
             .await?;
     let response: Vec<CategoryResponse> =
         categories.into_iter().map(CategoryResponse::from).collect();
     format::json(ApiResponse::success(response))
 }
 
-/// GET /api/stores/:store_pid/categories/:pid
+/// GET /api/v1/categories/:pid
 #[debug_handler]
 async fn get_one(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let category = crate::models::categories::Model::find_by_pid(&ctx.db, &pid).await?;
     format::json(ApiResponse::success(CategoryResponse::from(category)))
 }
 
-/// PUT /api/stores/:store_pid/categories/:pid
+/// PUT /api/v1/categories/:pid
 #[debug_handler]
 async fn update(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<UpdateCategoryParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
@@ -96,12 +92,12 @@ async fn update(
     format::json(ApiResponse::success(CategoryResponse::from(updated)))
 }
 
-/// DELETE /api/stores/:store_pid/categories/:pid - Soft delete
+/// DELETE /api/v1/categories/:pid - Soft delete
 #[debug_handler]
 async fn remove(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
     let category = crate::models::categories::Model::find_by_pid(&ctx.db, &pid).await?;
@@ -126,7 +122,7 @@ async fn admin_list(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("/api/stores/{store_pid}/categories")
+        .prefix("/api/v1/categories")
         .add("/", post(create))
         .add("/", get(list))
         .add("/{pid}", get(get_one))

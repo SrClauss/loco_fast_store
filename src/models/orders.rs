@@ -19,31 +19,28 @@ pub struct CreateOrderFromCartParams {
 impl ActiveModelBehavior for ActiveModel {}
 impl ActiveModelBehavior for order_items::ActiveModel {}
 
-/// Gera número de pedido: LFS-{store_id}-{seq}
-fn generate_order_number(store_id: i32, seq: i64) -> String {
-    format!("LFS-{:04}-{:06}", store_id, seq)
+/// Gera número de pedido: LFS-{seq}
+fn generate_order_number(seq: i64) -> String {
+    format!("LFS-{:06}", seq)
 }
 
 impl Model {
     /// Cria pedido a partir de um carrinho
     pub async fn create_from_cart(
         db: &DatabaseConnection,
-        store_id: i32,
         cart: &super::_entities::carts::Model,
         cart_items: &[super::_entities::cart_items::Model],
         params: &CreateOrderFromCartParams,
     ) -> ModelResult<Self> {
         // Conta pedidos existentes para gerar número
         let count = Entity::find()
-            .filter(orders::Column::StoreId.eq(store_id))
             .count(db)
             .await?;
 
-        let order_number = generate_order_number(store_id, count as i64 + 1);
+        let order_number = generate_order_number(count as i64 + 1);
 
         let order = orders::ActiveModel {
             pid: ActiveValue::set(Uuid::new_v4()),
-            store_id: ActiveValue::set(store_id),
             customer_id: ActiveValue::set(params.customer_id),
             cart_id: ActiveValue::set(Some(cart.id)),
             order_number: ActiveValue::set(order_number),
@@ -107,16 +104,14 @@ impl Model {
         order.ok_or_else(|| ModelError::EntityNotFound)
     }
 
-    /// Lista pedidos da loja
+    /// Lista pedidos
     pub async fn list_for_store(
         db: &DatabaseConnection,
-        store_id: i32,
         status: Option<&str>,
         cursor: Option<i32>,
         limit: u64,
     ) -> ModelResult<Vec<Self>> {
-        let mut query = Entity::find()
-            .filter(orders::Column::StoreId.eq(store_id));
+        let mut query = Entity::find();
 
         if let Some(s) = status {
             query = query.filter(orders::Column::Status.eq(s));

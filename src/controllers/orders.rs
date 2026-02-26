@@ -31,18 +31,14 @@ pub struct UpdateOrderStatusParams {
     pub payment_data: Option<serde_json::Value>,
 }
 
-/// POST /api/stores/:store_pid/orders - Cria pedido a partir de carrinho
+/// POST /api/v1/orders - Cria pedido a partir de carrinho
 #[debug_handler]
 async fn create(
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Json(params): Json<CreateOrderFromCartParams>,
 ) -> Result<Response> {
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
-
     // Busca o último carrinho ativo do customer
     let carts = crate::models::_entities::carts::Entity::find()
-        .filter(crate::models::_entities::carts::Column::StoreId.eq(store.id))
         .filter(crate::models::_entities::carts::Column::CustomerId.eq(params.customer_id))
         .filter(crate::models::_entities::carts::Column::Status.eq("active"))
         .one(&ctx.db)
@@ -56,7 +52,7 @@ async fn create(
     }
 
     let order =
-        OrderModel::create_from_cart(&ctx.db, store.id, &cart, &cart_items, &params).await?;
+        OrderModel::create_from_cart(&ctx.db, &cart, &cart_items, &params).await?;
 
     // Marca carrinho como completed
     CartModel::complete(&ctx.db, cart.id).await?;
@@ -70,21 +66,18 @@ async fn create(
     format::json(ApiResponse::success(response))
 }
 
-/// GET /api/stores/:store_pid/orders - Lista pedidos
+/// GET /api/v1/orders - Lista pedidos
 #[debug_handler]
 async fn list(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path(store_pid): Path<Uuid>,
     Query(query): Query<OrderListQuery>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let store = crate::models::stores::Model::find_by_pid(&ctx.db, &store_pid).await?;
 
     let limit = query.limit.unwrap_or(20);
     let orders = OrderModel::list_for_store(
         &ctx.db,
-        store.id,
         query.status.as_deref(),
         query.cursor,
         limit,
@@ -99,11 +92,11 @@ async fn list(
     format::json(ApiResponse::paginated(response, cursor, has_more, count))
 }
 
-/// GET /api/stores/:store_pid/orders/:pid - Detalhes do pedido
+/// GET /api/v1/orders/:pid - Detalhes do pedido
 #[debug_handler]
 async fn get_one(
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
 ) -> Result<Response> {
     let order = OrderModel::find_by_pid(&ctx.db, &pid).await?;
     let items = OrderModel::get_items(&ctx.db, order.id).await?;
@@ -114,12 +107,12 @@ async fn get_one(
     format::json(ApiResponse::success(response))
 }
 
-/// PUT /api/stores/:store_pid/orders/:pid/status - Atualiza status do pedido
+/// PUT /api/v1/orders/:pid/status - Atualiza status do pedido
 #[debug_handler]
 async fn update_status(
     auth: auth::JWT,
     State(ctx): State<AppContext>,
-    Path((_store_pid, pid)): Path<(Uuid, Uuid)>,
+    Path(pid): Path<Uuid>,
     Json(params): Json<UpdateOrderStatusParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
@@ -222,7 +215,7 @@ async fn admin_list(
 
 pub fn routes() -> Routes {
     Routes::new()
-        .prefix("/api/stores/{store_pid}/orders")
+        .prefix("/api/v1/orders")
         .add("/", post(create))
         .add("/", get(list))
         .add("/{pid}", get(get_one))
