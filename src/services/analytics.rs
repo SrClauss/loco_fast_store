@@ -1,6 +1,6 @@
 #![allow(clippy::uninlined_format_args, clippy::missing_errors_doc, clippy::doc_markdown)]
 
-//! Serviço de analytics: Redis (cache quente, TTL 7 dias) → Sled (persistência)
+//! Serviço de analytics: Moka (cache quente, in-memory) → Sled (persistência)
 //!
 //! Eventos rastreados:
 //! - product_view: visitou a página de um produto
@@ -13,8 +13,13 @@
 //! - search: busca de produto
 
 
+use moka::future::Cache;
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{
+    collections::HashMap,
+    sync::Arc,
+};
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalyticsEvent {
@@ -27,75 +32,79 @@ pub struct AnalyticsEvent {
     pub timestamp: i64,
 }
 
-/// Chaves Redis para eventos de analytics
-fn redis_key_event_stream() -> String {
-    "analytics:events".to_string()
-}
-
-fn redis_key_product_views(product_id: &str) -> String {
-    format!("analytics:product:{}:views", product_id)
-}
-
-fn redis_key_session_products(session_id: &str) -> String {
-    format!("analytics:session:{}:products", session_id)
-}
-
-fn redis_key_product_visitors(product_id: &str) -> String {
-    format!("analytics:product:{}:visitors", product_id)
-}
-
-/// Cliente Redis para analytics
+/// In-memory analytics backend powered by Moka
 pub struct AnalyticsService {
-    redis: redis::Client,
+    /// Event stream (equivalent to Redis LPUSH/LRANGE)
+    event_stream: Arc<Mutex<Vec<String>>>,
+    /// Integer counters (equivalent to Redis INCR/GET) — protected by a mutex for atomic updates
+    counters: Arc<Mutex<HashMap<String, i64>>>,
+    /// Sets per key (equivalent to Redis SADD/SISMEMBER/SCARD) — each set is atomically inserted via moka
+    sets: Cache<String, Arc<Mutex<std::collections::HashSet<String>>>>,
     sled_db: Arc<sled::Db>,
 }
 
 impl AnalyticsService {
     /// Inicializa o serviço de analytics
-    pub fn new(redis_url: &str, sled_path: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        let redis = redis::Client::open(redis_url)?;
+    pub fn new(sled_path: &str) -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         let sled_db = Arc::new(sled::open(sled_path)?);
-        Ok(Self { redis, sled_db })
+        Ok(Self {
+            event_stream: Arc::new(Mutex::new(Vec::new())),
+            counters: Arc::new(Mutex::new(HashMap::new())),
+            sets: Cache::builder()
+                .max_capacity(10_000)
+                .build(),
+            sled_db,
+        })
     }
 
-    /// Obtém conexão Redis
-    async fn get_conn(&self) -> Result<redis::aio::MultiplexedConnection, redis::RedisError> {
-        self.redis.get_multiplexed_tokio_connection().await
+    /// Incrementa contador para uma chave (operação atômica)
+    async fn incr(&self, key: &str) {
+        let mut map = self.counters.lock().await;
+        let counter = map.entry(key.to_string()).or_insert(0);
+        *counter += 1;
     }
 
-    /// Registra evento de analytics no Redis
+    /// Adiciona membro a um set in-memory (operação atômica via moka get_with)
+    async fn sadd(&self, key: &str, member: &str) {
+        let key_owned = key.to_string();
+        let set = self.sets.get_with(key_owned, async {
+            Arc::new(Mutex::new(std::collections::HashSet::new()))
+        }).await;
+        set.lock().await.insert(member.to_string());
+    }
+
+    /// Verifica se membro pertence a um set
+    async fn sismember(&self, key: &str, member: &str) -> bool {
+        if let Some(set) = self.sets.get(key).await {
+            set.lock().await.contains(member)
+        } else {
+            false
+        }
+    }
+
+    /// Retorna cardinalidade de um set
+    async fn scard(&self, key: &str) -> i64 {
+        if let Some(set) = self.sets.get(key).await {
+            set.lock().await.len() as i64
+        } else {
+            0
+        }
+    }
+
+    /// Registra evento de analytics no cache in-memory
     pub async fn track_event(&self, event: &AnalyticsEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
         let event_json = serde_json::to_string(event)?;
+        self.event_stream.lock().await.push(event_json);
 
-        // Adiciona ao stream de eventos
-        let key = redis_key_event_stream();
-        redis::cmd("LPUSH")
-            .arg(&key)
-            .arg(&event_json)
-            .query_async::<()>(&mut conn)
-            .await?;
-
-        // TTL de 7 dias no stream
-        redis::cmd("EXPIRE")
-            .arg(&key)
-            .arg(7 * 24 * 3600)
-            .query_async::<()>(&mut conn)
-            .await?;
-
-        // Se for product_view, incrementa contadores
         if event.event_type == "product_view" {
             if let Some(ref entity_id) = event.entity_id {
-                self.track_product_view(entity_id, &event.session_id)
-                    .await?;
+                self.track_product_view(entity_id, &event.session_id).await;
             }
         }
 
-        // Se for product_revisit, incrementa contador de namoro
         if event.event_type == "product_revisit" {
             if let Some(ref entity_id) = event.entity_id {
-                self.track_product_revisit(entity_id, &event.session_id)
-                    .await?;
+                self.track_product_revisit(entity_id, &event.session_id).await;
             }
         }
 
@@ -103,88 +112,16 @@ impl AnalyticsService {
     }
 
     /// Incrementa view de produto e rastreia sessão
-    async fn track_product_view(
-        &self,
-        product_id: &str,
-        session_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
-
-        // Incrementa contador total de views do produto
-        let views_key = redis_key_product_views(product_id);
-        redis::cmd("INCR")
-            .arg(&views_key)
-            .query_async::<()>(&mut conn)
-            .await?;
-        redis::cmd("EXPIRE")
-            .arg(&views_key)
-            .arg(7 * 24 * 3600)
-            .query_async::<()>(&mut conn)
-            .await?;
-
-        // Rastreia quais produtos a sessão visitou (para detectar revisitas)
-        let session_key = redis_key_session_products(session_id);
-        redis::cmd("SADD")
-            .arg(&session_key)
-            .arg(product_id)
-            .query_async::<()>(&mut conn)
-            .await?;
-        redis::cmd("EXPIRE")
-            .arg(&session_key)
-            .arg(7 * 24 * 3600)
-            .query_async::<()>(&mut conn)
-            .await?;
-
-        // Rastreia visitantes únicos do produto (HyperLogLog)
-        let visitors_key = redis_key_product_visitors(product_id);
-        redis::cmd("PFADD")
-            .arg(&visitors_key)
-            .arg(session_id)
-            .query_async::<()>(&mut conn)
-            .await?;
-        redis::cmd("EXPIRE")
-            .arg(&visitors_key)
-            .arg(7 * 24 * 3600)
-            .query_async::<()>(&mut conn)
-            .await?;
-
-        Ok(())
+    async fn track_product_view(&self, product_id: &str, session_id: &str) {
+        self.incr(&format!("analytics:product:{}:views", product_id)).await;
+        self.sadd(&format!("analytics:session:{}:products", session_id), product_id).await;
+        self.sadd(&format!("analytics:product:{}:visitors", product_id), session_id).await;
     }
 
     /// Rastreia revisita (namoro) - session já visitou este produto antes
-    async fn track_product_revisit(
-        &self,
-        product_id: &str,
-        session_id: &str,
-    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
-
-        // Incrementa contador de revisitas
-        let key = format!("analytics:product:{}:revisits", product_id);
-        redis::cmd("INCR")
-            .arg(&key)
-            .query_async::<()>(&mut conn)
-            .await?;
-        redis::cmd("EXPIRE")
-            .arg(&key)
-            .arg(7 * 24 * 3600)
-            .query_async::<()>(&mut conn)
-            .await?;
-
-        // Rastreia sessões que "namoraram" este produto
-        let namoro_key = format!("analytics:product:{}:namoro_sessions", product_id);
-        redis::cmd("SADD")
-            .arg(&namoro_key)
-            .arg(session_id)
-            .query_async::<()>(&mut conn)
-            .await?;
-        redis::cmd("EXPIRE")
-            .arg(&namoro_key)
-            .arg(7 * 24 * 3600)
-            .query_async::<()>(&mut conn)
-            .await?;
-
-        Ok(())
+    async fn track_product_revisit(&self, product_id: &str, session_id: &str) {
+        self.incr(&format!("analytics:product:{}:revisits", product_id)).await;
+        self.sadd(&format!("analytics:product:{}:namoro_sessions", product_id), session_id).await;
     }
 
     /// Verifica se sessão já visitou o produto (para detectar revisita)
@@ -193,14 +130,7 @@ impl AnalyticsService {
         session_id: &str,
         product_id: &str,
     ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
-        let key = redis_key_session_products(session_id);
-        let result: bool = redis::cmd("SISMEMBER")
-            .arg(&key)
-            .arg(product_id)
-            .query_async(&mut conn)
-            .await?;
-        Ok(result)
+        Ok(self.sismember(&format!("analytics:session:{}:products", session_id), product_id).await)
     }
 
     /// Obtém contagem de views de um produto
@@ -208,61 +138,34 @@ impl AnalyticsService {
         &self,
         product_id: &str,
     ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
-        let key = redis_key_product_views(product_id);
-        let count: Option<i64> = redis::cmd("GET")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await?;
-        Ok(count.unwrap_or(0))
+        let map = self.counters.lock().await;
+        Ok(*map.get(&format!("analytics:product:{}:views", product_id)).unwrap_or(&0))
     }
 
-    /// Obtém visitantes únicos de um produto (HyperLogLog)
+    /// Obtém visitantes únicos de um produto (aproximado via set cardinality)
     pub async fn get_product_unique_visitors(
         &self,
         product_id: &str,
     ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
-        let key = redis_key_product_visitors(product_id);
-        let count: i64 = redis::cmd("PFCOUNT")
-            .arg(&key)
-            .query_async(&mut conn)
-            .await?;
-        Ok(count)
+        Ok(self.scard(&format!("analytics:product:{}:visitors", product_id)).await)
     }
 
-    /// Flush: move dados quentes do Redis para Sled (persistência)
+    /// Flush: move dados quentes do cache para Sled (persistência)
     /// Chamado periodicamente pelo AnalyticsFlushWorker
     pub async fn flush_to_sled(&self) -> Result<usize, Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
-        let key = redis_key_event_stream();
-
-        // Pega todos os eventos do stream
-        let events: Vec<String> = redis::cmd("LRANGE")
-            .arg(&key)
-            .arg(0)
-            .arg(-1)
-            .query_async(&mut conn)
-            .await?;
-
-        if events.is_empty() {
+        let mut stream = self.event_stream.lock().await;
+        if stream.is_empty() {
             return Ok(0);
         }
 
+        let events: Vec<String> = stream.drain(..).collect();
         let count = events.len();
 
-        // Salva no Sled com chave baseada em timestamp
         let tree = self.sled_db.open_tree("analytics")?;
         let batch_key = format!("events:{}", chrono::Utc::now().timestamp_millis());
         let batch_json = serde_json::to_vec(&events)?;
         tree.insert(batch_key.as_bytes(), batch_json)?;
         tree.flush()?;
-
-        // Limpa o stream do Redis após persistir
-        redis::cmd("DEL")
-            .arg(&key)
-            .query_async::<()>(&mut conn)
-            .await?;
 
         tracing::info!(
             events_flushed = count,
@@ -295,34 +198,18 @@ impl AnalyticsService {
         &self,
         session_id: &str,
     ) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
-        let mut conn = self.get_conn().await?;
         let mut score: f64 = 0.0;
 
-        // Quantos produtos visitou
-        let session_key = redis_key_session_products(session_id);
-        let products_visited: i64 = redis::cmd("SCARD")
-            .arg(&session_key)
-            .query_async(&mut conn)
-            .await
-            .unwrap_or(0);
-        score += products_visited as f64 * 1.0;
+        let products_visited = self.scard(&format!("analytics:session:{}:products", session_id)).await;
+        score += products_visited as f64;
 
-        // Eventos do session (buscar no stream)
-        let events_key = redis_key_event_stream();
-        let all_events: Vec<String> = redis::cmd("LRANGE")
-            .arg(&events_key)
-            .arg(0)
-            .arg(-1)
-            .query_async(&mut conn)
-            .await
-            .unwrap_or_default();
-
-        for event_json in &all_events {
+        let stream = self.event_stream.lock().await;
+        for event_json in stream.iter() {
             if let Ok(evt) = serde_json::from_str::<AnalyticsEvent>(event_json) {
                 if evt.session_id == session_id {
                     match evt.event_type.as_str() {
                         "product_detail_expand" => score += 2.0,
-                        "product_revisit" => score += 5.0, // namoro vale muito
+                        "product_revisit" => score += 5.0,
                         "cart_add" => score += 10.0,
                         "checkout_start" => score += 20.0,
                         _ => {}
