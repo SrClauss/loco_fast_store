@@ -12,15 +12,13 @@ default-run = "loco_fast_store-cli"
 [workspace.dependencies]
 loco-rs = { version = "0.16" }
 
-[patch.crates-io]
-# use local copy of loco-rs so we can apply runtime fixes for route parameter
-# syntax (converting colon routes to brace style). otherwise the default
-# workspace dependency pulls from crates.io and panics when the server
-# starts with axum 0.8.
-loco-rs = { path = "vendor/loco-rs" }
+# no local patch needed anymore; switch back to crates.io version
+# (previously we vendored loco-rs for runtime fixes)
+# [patch.crates-io]
+# loco-rs = { path = "vendor/loco-rs" }
 
 [dependencies]
-loco-rs = { workspace = true  }
+loco-rs = "0.16"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1" }
 tokio = { version = "1.45", default-features = false, features = [
