@@ -60,6 +60,10 @@ name = "loco_fast_store-cli"
 path = "src/bin/main.rs"
 required-features = []
 
+[[bin]]
+name = "create-template"
+path = "src/bin/create_template.rs"
+
 [dev-dependencies]
 loco-rs = { workspace = true, features = ["testing"] }
 serial_test = { version = "3.1.1" }

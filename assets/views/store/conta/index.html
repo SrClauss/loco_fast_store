@@ -1,0 +1,97 @@
+{%% extends "store/layouts/base.html" %%}
+{%% block title %%}Minha Conta{%% endblock %%}
+
+{%% block content %%}
+<div class="max-w-5xl mx-auto px-4 py-10">
+  <div x-data="CustomerAccount()" x-init="init()">
+    <div class="flex gap-8">
+      <!-- Sidebar -->
+      <aside class="w-48 flex-shrink-0">
+        <nav class="space-y-1">
+          <button @click="tab='profile'"
+                  :class="tab==='profile' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'"
+                  class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-colors">
+            <i class="fas fa-user mr-2"></i>Perfil
+          </button>
+          <button @click="tab='orders'"
+                  :class="tab==='orders' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'"
+                  class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-colors">
+            <i class="fas fa-box mr-2"></i>Pedidos
+          </button>
+          <button @click="tab='addresses'"
+                  :class="tab==='addresses' ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'"
+                  class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-colors">
+            <i class="fas fa-map-marker-alt mr-2"></i>Endereços
+          </button>
+          <button @click="logout()"
+                  class="w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+            <i class="fas fa-sign-out-alt mr-2"></i>Sair
+          </button>
+        </nav>
+      </aside>
+
+      <!-- Conteúdo -->
+      <div class="flex-1">
+        <!-- Perfil -->
+        <div x-show="tab==='profile'" class="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-6">Meu perfil</h2>
+          <div x-show="loading" class="space-y-4 animate-pulse">
+            <div class="h-4 bg-gray-100 rounded w-1/2"></div>
+            <div class="h-4 bg-gray-100 rounded w-1/3"></div>
+          </div>
+          <div x-show="!loading && profile" class="space-y-3 text-sm">
+            <div class="flex gap-2"><span class="text-gray-500 w-24">Nome</span><span class="font-medium" x-text="(profile?.first_name||'')+' '+(profile?.last_name||'')"></span></div>
+            <div class="flex gap-2"><span class="text-gray-500 w-24">E-mail</span><span class="font-medium" x-text="profile?.email"></span></div>
+            <div class="flex gap-2"><span class="text-gray-500 w-24">Telefone</span><span class="font-medium" x-text="profile?.phone || '—'"></span></div>
+          </div>
+        </div>
+
+        <!-- Pedidos -->
+        <div x-show="tab==='orders'" class="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-6">Meus pedidos</h2>
+          <div x-show="loading" class="space-y-3 animate-pulse">
+            <div class="h-16 bg-gray-100 rounded-xl"></div>
+            <div class="h-16 bg-gray-100 rounded-xl"></div>
+          </div>
+          <div x-show="!loading && orders.length === 0" class="py-12 text-center text-gray-400">
+            <i class="fas fa-box text-4xl mb-3"></i>
+            <p class="font-medium">Nenhum pedido ainda</p>
+            <a href="/produtos" class="mt-3 inline-block text-gray-900 underline font-medium">Começar a comprar</a>
+          </div>
+          <div class="space-y-3">
+            <template x-for="order in orders" :key="order.pid">
+              <div class="flex items-center gap-4 p-4 border border-gray-200 rounded-xl hover:border-gray-400 transition-colors">
+                <div class="flex-1 min-w-0">
+                  <p class="font-mono font-semibold text-gray-900" x-text="order.order_number"></p>
+                  <p class="text-xs text-gray-500 mt-0.5" x-text="fmtDate(order.created_at)"></p>
+                </div>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      :class="statusClass(order.status)" x-text="statusLabel(order.status)"></span>
+                <span class="font-bold text-gray-900" x-text="fmtMoney(order.total)"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Endereços -->
+        <div x-show="tab==='addresses'" class="bg-white rounded-2xl border border-gray-200 p-6">
+          <h2 class="text-xl font-bold text-gray-900 mb-6">Meus endereços</h2>
+          <div x-show="addresses.length === 0" class="py-8 text-center text-gray-400">
+            <i class="fas fa-map-marker-alt text-4xl mb-3"></i>
+            <p class="font-medium">Nenhum endereço cadastrado</p>
+          </div>
+          <div class="space-y-3">
+            <template x-for="addr in addresses" :key="addr.pid || addr.id">
+              <div class="p-4 border border-gray-200 rounded-xl text-sm">
+                <p class="font-medium" x-text="addr.first_name + ' ' + addr.last_name"></p>
+                <p class="text-gray-600" x-text="addr.address_line_1"></p>
+                <p class="text-gray-600" x-text="addr.city + ' - ' + addr.state + ', ' + addr.postal_code"></p>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{%% endblock %%}

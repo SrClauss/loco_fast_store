@@ -1,0 +1,55 @@
+{%% extends "store/layouts/base.html" %%}
+{%% block title %%}Carrinho{%% endblock %%}
+
+{%% block content %%}
+<div class="max-w-5xl mx-auto px-4 py-10">
+  <h1 class="text-3xl font-bold text-gray-900 mb-8">Carrinho</h1>
+  <div x-data="CartPage()" x-init="init()" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <div class="lg:col-span-2 space-y-4">
+      <div x-show="$store.cart.count === 0 && !$store.cart.loading"
+           class="py-16 text-center text-gray-400 bg-gray-50 rounded-2xl">
+        <i class="fas fa-shopping-cart text-5xl mb-4"></i>
+        <p class="font-medium">Carrinho vazio</p>
+        <a href="/produtos" class="mt-4 inline-block text-gray-900 underline font-medium">Continuar comprando</a>
+      </div>
+      <template x-for="item in $store.cart.items" :key="item.pid || item.id">
+        <div class="flex gap-4 p-4 bg-white rounded-2xl border border-gray-200">
+          <img :src="item.image_url || '/static/images/placeholder.png'" :alt="item.title"
+               class="w-24 h-24 object-cover rounded-xl flex-shrink-0">
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-gray-900" x-text="item.title"></p>
+            <p class="text-sm text-gray-500 mt-0.5" x-text="item.variant_title"></p>
+            <div class="flex items-center justify-between mt-3">
+              <div class="flex items-center gap-1 border border-gray-300 rounded-xl">
+                <button @click="dec(item)" class="px-3 py-2 text-lg font-bold hover:bg-gray-50 rounded-l-xl">−</button>
+                <span x-text="item.quantity" class="px-3 font-semibold"></span>
+                <button @click="inc(item)" class="px-3 py-2 text-lg font-bold hover:bg-gray-50 rounded-r-xl">+</button>
+              </div>
+              <p class="font-bold text-lg" x-text="fmtMoney(item.total)"></p>
+            </div>
+          </div>
+          <button @click="$store.cart.removeItem(item.id)" class="text-gray-400 hover:text-red-500 self-start mt-1">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </template>
+    </div>
+    <div x-show="$store.cart.count > 0" class="bg-gray-50 rounded-2xl p-6 h-fit space-y-4">
+      <h3 class="font-bold text-lg">Resumo</h3>
+      <div class="flex justify-between text-sm text-gray-600">
+        <span x-text="$store.cart.count + ' iten' + ($store.cart.count===1?'':\'s\')"></span>
+        <span x-text="fmtMoney($store.cart.total)"></span>
+      </div>
+      <div class="border-t pt-4 flex justify-between font-bold text-xl">
+        <span>Total</span>
+        <span x-text="fmtMoney($store.cart.total)"></span>
+      </div>
+      <a href="/checkout"
+         class="block w-full text-center bg-gray-900 text-white py-4 rounded-xl font-bold text-lg hover:bg-gray-700 transition-colors">
+        Finalizar compra
+      </a>
+      <a href="/produtos" class="block text-center text-sm text-gray-500 hover:text-gray-700">Continuar comprando</a>
+    </div>
+  </div>
+</div>
+{%% endblock %%}

@@ -98,7 +98,7 @@ impl Model {
             if existing.is_none() {
                 return Ok(candidate);
             }
-            candidate = format!("{}{}", base_slug, counter);
+            candidate = format!("{}-{}", base_slug, counter);
             counter += 1;
         }
     }

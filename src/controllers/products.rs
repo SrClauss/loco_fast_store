@@ -390,34 +390,36 @@ async fn import_images(
     let mut archive = zip::ZipArchive::new(Cursor::new(zip_bytes))
         .map_err(|e| Error::string(&e.to_string()))?;
 
-    let mut processed: Vec<serde_json::Value> = Vec::new();
+    // Coleta todos os dados em memória ANTES dos awaits
+    // (ZipFile não é Send, não pode cruzar pontos .await)
+    struct FileEntry { slug: String, filename: String, data: Vec<u8> }
+    let mut entries: Vec<FileEntry> = Vec::new();
 
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).map_err(|e| Error::string(&e.to_string()))?;
         let file_path = file.mangled_name();
         let parts: Vec<&str> = file_path.to_str().unwrap_or("").split('/').collect();
-        // Estrutura esperada: <slug>/<imagem>
-        if parts.len() < 2 || file.is_dir() {
-            continue;
-        }
-        let slug = parts[0];
-        let filename = parts[parts.len() - 1];
+        if parts.len() < 2 || file.is_dir() { continue; }
+        let slug     = parts[0].to_string();
+        let filename = parts[parts.len() - 1].to_string();
+        if filename.starts_with('.') || slug.starts_with('.') { continue; }
+        let mut data = Vec::new();
+        std::io::copy(&mut file, &mut data).map_err(|e| Error::string(&e.to_string()))?;
+        entries.push(FileEntry { slug, filename, data });
+    }
+    drop(archive); // libera antes dos awaits
 
-        // Ignora arquivos ocultos
-        if filename.starts_with('.') || slug.starts_with('.') {
-            continue;
-        }
+    let mut processed: Vec<serde_json::Value> = Vec::new();
 
-        // Lê o conteúdo da imagem
-        let mut image_data = Vec::new();
-        std::io::copy(&mut file, &mut image_data).map_err(|e| Error::string(&e.to_string()))?;
+    for entry in entries {
+        let FileEntry { slug, filename, data } = entry;
 
         // Busca o produto pelo slug na loja
         use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
         use crate::models::_entities::products;
         let product = products::Entity::find()
             .filter(products::Column::StoreId.eq(store.id))
-            .filter(products::Column::Slug.eq(slug))
+            .filter(products::Column::Slug.eq(slug.as_str()))
             .filter(products::Column::DeletedAt.is_null())
             .one(&ctx.db)
             .await?;
@@ -425,13 +427,11 @@ async fn import_images(
         if let Some(product) = product {
             // Salva a imagem usando o storage do loco-rs
             let storage_path = format!("products/{}/{}", slug, filename);
-            let image_url = match ctx.storage.as_ref() {
-                Some(storage) => {
-                    storage.upload(storage_path.as_str(), &image_data).await
-                        .map(|_| format!("/storage/{}", storage_path))
-                        .unwrap_or_else(|_| format!("/static/uploads/{}", storage_path))
-                }
-                None => format!("/static/uploads/{}", storage_path),
+            let image_url = {
+                use std::path::Path;
+                let bytes = axum::body::Bytes::from(data);
+                let _ = ctx.storage.upload(Path::new(&storage_path), &bytes).await;
+                format!("/storage/{}", storage_path)
             };
 
             // Registra a imagem no banco

@@ -1,0 +1,40 @@
+{%% extends "store/layouts/base.html" %%}
+{%% block title %%}Favoritos{%% endblock %%}
+
+{%% block content %%}
+<div class="max-w-7xl mx-auto px-4 py-10">
+  <h1 class="text-3xl font-bold text-gray-900 mb-8">
+    Favoritos
+    <span x-data class="text-gray-400 text-xl ml-2" x-show="$store.wishlist.count > 0"
+          x-text="'(' + $store.wishlist.count + ')'"></span>
+  </h1>
+  <div x-data="WishlistPage()" x-init="init()">
+    <div x-show="loading" class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <template x-for="i in 4" :key="i"><div class="bg-gray-100 animate-pulse rounded-2xl h-64"></div></template>
+    </div>
+    <div x-show="!loading && products.length === 0" class="py-16 text-center text-gray-400">
+      <i class="far fa-heart text-5xl mb-4"></i>
+      <p class="font-medium">Nenhum favorito ainda</p>
+      <a href="/produtos" class="mt-4 inline-block text-gray-900 underline font-medium">Descobrir produtos</a>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <template x-for="p in products" :key="p.pid">
+        <div class="group relative">
+          <a :href="'/produto/'+p.slug" class="block">
+            <div class="aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-3">
+              <img :src="p.image_url || '/static/images/placeholder.png'" :alt="p.title"
+                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+            </div>
+            <p class="font-semibold text-gray-900 text-sm truncate" x-text="p.title"></p>
+            <p class="font-bold text-gray-900 mt-1" x-text="fmtMoney(p.price)"></p>
+          </a>
+          <button @click="remove(p.pid)"
+                  class="absolute top-3 right-3 w-8 h-8 bg-white rounded-full shadow flex items-center justify-center text-red-400 hover:text-red-600 hover:shadow-md transition-all">
+            <i class="fas fa-heart text-sm"></i>
+          </button>
+        </div>
+      </template>
+    </div>
+  </div>
+</div>
+{%% endblock %%}

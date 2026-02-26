@@ -1,0 +1,71 @@
+{%% extends "store/layouts/base.html" %%}
+{%% block title %%}Produtos{%% endblock %%}
+
+{%% block content %%}
+<div class="max-w-7xl mx-auto px-4 py-10">
+  <div x-data="ProductList({ limit: 24 })" x-init="init()">
+    <div class="flex flex-col md:flex-row gap-8">
+
+      <!-- Filtros (sidebar) -->
+      <aside class="w-full md:w-56 flex-shrink-0 space-y-6">
+        <div>
+          <p class="font-semibold text-gray-900 mb-3">Busca</p>
+          <input x-model="filters.q"
+                 @input.debounce.400ms="search($event.target.value)"
+                 placeholder="Buscar…"
+                 class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900">
+        </div>
+        <div>
+          <p class="font-semibold text-gray-900 mb-3">Status</p>
+          <div class="space-y-2 text-sm">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" x-model="filters.status" value="active" @change="filter('status','active')" class="text-gray-900">
+              Disponíveis
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" x-model="filters.status" value="" @change="filter('status','')" class="text-gray-900">
+              Todos
+            </label>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Grid -->
+      <div class="flex-1">
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-2xl font-bold text-gray-900">Produtos</h1>
+          <p class="text-sm text-gray-500" x-text="products.length + ' produto' + (products.length === 1 ? '' : 's')"></p>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <template x-if="loading && products.length === 0">
+            <template x-for="i in 6" :key="i">
+              <div class="bg-gray-100 animate-pulse rounded-2xl h-72"></div>
+            </template>
+          </template>
+          <template x-for="p in products" :key="p.pid">
+            <a :href="\"/produto/\"+p.slug" class="group block">
+              <div class="aspect-square bg-gray-100 rounded-2xl overflow-hidden mb-3">
+                <img :src="p.image_url || \"/static/images/placeholder.png\"" :alt="p.title"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+              </div>
+              <p class="font-semibold text-gray-900 text-sm truncate" x-text="p.title"></p>
+              <p class="font-bold text-gray-900 mt-1" x-text="fmtMoney(p.price)"></p>
+            </a>
+          </template>
+        </div>
+        <div x-show="!loading && products.length === 0" class="py-16 text-center text-gray-400">
+          <i class="fas fa-search text-4xl mb-4"></i>
+          <p class="font-medium">Nenhum produto encontrado</p>
+        </div>
+        <div class="text-center mt-10">
+          <button @click="loadMore()" x-show="hasMore" :disabled="loading"
+                  class="px-8 py-3 border border-gray-300 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50">
+            <span x-show="!loading">Carregar mais</span>
+            <span x-show="loading"><i class="fas fa-spinner fa-spin mr-2"></i>Carregando…</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{%% endblock %%}

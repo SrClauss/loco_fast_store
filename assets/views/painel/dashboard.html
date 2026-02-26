@@ -1,0 +1,159 @@
+{% extends "painel/layouts/base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% set current_page = "dashboard" %}
+
+{% block content %}
+<div x-data="painelDashboard()" x-init="init()">
+
+  <!-- Cards de resumo -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Aguardando Envio</p>
+        <span class="w-8 h-8 bg-orange-100 text-orange-600 rounded-lg flex items-center justify-center">
+          <i class="fas fa-clock text-sm"></i>
+        </span>
+      </div>
+      <p class="text-3xl font-bold text-gray-900" x-text="stats.pendingShipments">—</p>
+      <a href="/painel/{{ store.pid }}/pedidos?fulfillment_status=not_fulfilled"
+         class="text-xs text-indigo-600 hover:text-indigo-700 mt-1 inline-block">Ver pedidos →</a>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Em Trânsito</p>
+        <span class="w-8 h-8 bg-indigo-100 text-indigo-600 rounded-lg flex items-center justify-center">
+          <i class="fas fa-truck text-sm"></i>
+        </span>
+      </div>
+      <p class="text-3xl font-bold text-gray-900" x-text="stats.inTransit">—</p>
+      <a href="/painel/{{ store.pid }}/pedidos?fulfillment_status=fulfilled"
+         class="text-xs text-indigo-600 hover:text-indigo-700 mt-1 inline-block">Ver envios →</a>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Entregues Hoje</p>
+        <span class="w-8 h-8 bg-green-100 text-green-600 rounded-lg flex items-center justify-center">
+          <i class="fas fa-check-circle text-sm"></i>
+        </span>
+      </div>
+      <p class="text-3xl font-bold text-gray-900" x-text="stats.deliveredToday">—</p>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Pedidos</p>
+        <span class="w-8 h-8 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+          <i class="fas fa-shopping-bag text-sm"></i>
+        </span>
+      </div>
+      <p class="text-3xl font-bold text-gray-900" x-text="stats.totalOrders">—</p>
+    </div>
+  </div>
+
+  <!-- Pedidos aguardando envio -->
+  <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-900">
+        <i class="fas fa-clock text-orange-500 mr-2"></i>
+        Pedidos aguardando envio
+      </h2>
+      <a href="/painel/{{ store.pid }}/pedidos?fulfillment_status=not_fulfilled"
+         class="text-sm text-indigo-600 hover:text-indigo-700 font-medium">Ver todos</a>
+    </div>
+
+    <div x-show="loading" class="p-6 text-center text-gray-400">
+      <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+      <p class="text-sm">Carregando pedidos…</p>
+    </div>
+
+    <div x-show="!loading && pendingOrders.length === 0" class="p-12 text-center text-gray-400">
+      <i class="fas fa-box-open text-4xl mb-3"></i>
+      <p>Nenhum pedido aguardando envio.</p>
+    </div>
+
+    <div x-show="!loading && pendingOrders.length > 0" class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+          <tr>
+            <th class="px-6 py-3 text-left">Pedido</th>
+            <th class="px-6 py-3 text-left">Data</th>
+            <th class="px-6 py-3 text-left">Pagamento</th>
+            <th class="px-6 py-3 text-left">Total</th>
+            <th class="px-6 py-3 text-left">Endereço</th>
+            <th class="px-6 py-3 text-center">Ação</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          <template x-for="order in pendingOrders" :key="order.pid">
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-6 py-4 font-mono font-semibold text-gray-900" x-text="order.order_number"></td>
+              <td class="px-6 py-4 text-gray-500" x-text="fmtDate(order.created_at)"></td>
+              <td class="px-6 py-4">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                      :class="statusClass(order.payment_status)"
+                      x-text="statusLabel(order.payment_status)">
+                </span>
+              </td>
+              <td class="px-6 py-4 font-semibold text-gray-900" x-text="fmt(order.total)"></td>
+              <td class="px-6 py-4 text-gray-500 text-xs">
+                <span x-text="order.shipping?.city ?? '—'"></span>
+                <span x-show="order.shipping?.state" x-text="'/' + order.shipping?.state"></span>
+              </td>
+              <td class="px-6 py-4 text-center">
+                <a :href="'/painel/{{ store.pid }}/pedidos/' + order.pid"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-lg transition-colors">
+                  <i class="fas fa-truck"></i>
+                  Enviar
+                </a>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function painelDashboard() {
+  return {
+    loading: true,
+    pendingOrders: [],
+    stats: { pendingShipments: '—', inTransit: '—', deliveredToday: '—', totalOrders: '—' },
+
+    async init() {
+      try {
+        const { data: pending } = await fetch('/api/painel/{{ store.pid }}/pedidos?fulfillment_status=not_fulfilled&limit=10', {
+          headers: papi.headers(),
+        }).then(r => r.json());
+        this.pendingOrders = pending ?? [];
+
+        const { data: all } = await fetch('/api/painel/{{ store.pid }}/pedidos?limit=1', {
+          headers: papi.headers(),
+        }).then(r => r.json());
+
+        const { data: transit } = await fetch('/api/painel/{{ store.pid }}/pedidos?fulfillment_status=fulfilled&limit=1', {
+          headers: papi.headers(),
+        }).then(r => r.json());
+
+        this.stats.pendingShipments = this.pendingOrders.length;
+        this.stats.inTransit = transit?.length ?? 0;
+        this.stats.totalOrders = all?.length ?? 0;
+        this.stats.deliveredToday = 0; // TODO: filtrar por data
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.loading = false;
+      }
+    },
+  };
+}
+</script>
+{% endblock %}

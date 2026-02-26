@@ -1,1055 +1,889 @@
 /**
  * ============================================================
- * Loco Fast Store — SDK Alpine.js para lojas
+ *  Loco Fast Store — store-sdk.js  v2.0
  * ============================================================
  *
- * USO BÁSICO
- * ----------
- * 1. Configure o STORE_PID (UUID da sua loja) abaixo, OU defina
- *    window.STORE_PID antes de carregar este arquivo.
- * 2. Importe Alpine.js e este arquivo no seu HTML:
+ * ARQUIVO ÚNICO. Importe Alpine.js + este arquivo e pronto.
  *
  *   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
- *   <script>window.STORE_PID = 'uuid-da-sua-loja';</script>
+ *   <script>window.STORE_PID = '{{ store.pid }}';</script>
  *   <script src="/static/js/store-sdk.js"></script>
  *
- * 3. Use os componentes e stores diretamente nos seus templates.
- *
- * CONVENÇÕES DA API
- * -----------------
- * - Base URL:  /api/stores/{STORE_PID}/...
- * - Respostas: { ok: bool, data: T, meta?: { cursor, has_more, count } }
- * - Valores monetários: centavos inteiros (ex.: 1990 = R$ 19,90)
- * - IDs públicos:       UUID strings (campo "pid")
- * - Autenticação (customer): header  X-Customer-Token: <token>
- *
- * STORES GLOBAIS ALPINE
- * ----------------------
- *   $store.customer   — estado do cliente logado
- *   $store.cart       — carrinho ativo
- *   $store.toasts     — fila de notificações toast
- *
- * COMPONENTES (x-data)
- * ---------------------
- *   ProductList()       — lista de produtos com filtros e paginação
- *   ProductDetail(pid)  — produto individual com variantes e preços
- *   CategoryList()      — árvore de categorias
- *   CollectionDetail(pid) — coleção com seus produtos
- *   CartDrawer()        — gaveta lateral do carrinho
- *   CheckoutForm()      — formulário de checkout completo
- *   CustomerAuth()      — login e cadastro de cliente
- *   CustomerAccount()   — dados do perfil e endereços
- *   SearchBar()         — busca de produtos em tempo real
+ * Toda lógica de negócio está aqui. Os templates Tera/HTML
+ * usam apenas atributos Alpine (x-data, x-show, @click…).
  * ============================================================
  */
 
-// ─── Configuração global ─────────────────────────────────────────────────────
+// ─── Configuração ─────────────────────────────────────────────────────────────
+const _PID  = window.STORE_PID || '';
+const _BASE = `/api/stores/${_PID}`;
+const _K    = {
+  ctoken : `lfs_ctoken_${_PID}`,
+  cart   : `lfs_cart_${_PID}`,
+  sid    : `lfs_sid_${_PID}`,
+  wish   : `lfs_wish_${_PID}`,
+};
 
-/** UUID da loja. Pode ser sobrescrito com window.STORE_PID antes de carregar. */
-const STORE_PID = window.STORE_PID || '';
+// ─── Utilitários públicos ─────────────────────────────────────────────────────
 
-/** URL base da API. */
-const API_BASE = `/api/stores/${STORE_PID}`;
-
-/** Chave no localStorage para o token de sessão do cliente. */
-const SESSION_KEY = `lfs_customer_token_${STORE_PID}`;
-
-/** Chave no localStorage para o pid do carrinho ativo. */
-const CART_KEY = `lfs_cart_pid_${STORE_PID}`;
-
-/** Chave no localStorage para a session_id anônima do carrinho. */
-const SESSION_ID_KEY = `lfs_session_id_${STORE_PID}`;
-
-// ─── Utilitários ─────────────────────────────────────────────────────────────
-
-/**
- * Gera ou recupera a session_id persistente do visitante.
- * Usada para carrinhos anônimos.
- * @returns {string}
- */
-function getSessionId() {
-  let sid = localStorage.getItem(SESSION_ID_KEY);
-  if (!sid) {
-    sid = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    localStorage.setItem(SESSION_ID_KEY, sid);
-  }
-  return sid;
+/** Formata centavos → moeda (padrão BRL). Ex.: 1990 → "R$ 19,90" */
+function fmtMoney(cents, currency) {
+  currency = currency || 'BRL';
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format((cents || 0) / 100);
 }
 
-/**
- * Formata centavos para moeda.
- * @param {number} cents - Valor em centavos
- * @param {string} [currency='BRL'] - Código ISO 4217
- * @returns {string} Ex.: "R$ 19,90"
- */
-function formatMoney(cents, currency = 'BRL') {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency,
-  }).format(cents / 100);
+/** Formata ISO → data pt-BR. Ex.: "25 jan. 2026" */
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Intl.DateTimeFormat('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(s));
 }
 
-/**
- * Formata uma string ISO de data para exibição.
- * @param {string} dateStr
- * @returns {string} Ex.: "25 de jan. de 2026"
- */
-function formatDate(dateStr) {
+/** Formata ISO → data+hora pt-BR. */
+function fmtDateTime(s) {
+  if (!s) return '—';
   return new Intl.DateTimeFormat('pt-BR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(dateStr));
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  }).format(new Date(s));
 }
 
-/**
- * Gera slug a partir de texto.
- * @param {string} text
- * @returns {string}
- */
-function slugify(text) {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '');
+/** Session ID anônima persistente para carrinhos sem login. */
+function _sid() {
+  let v = localStorage.getItem(_K.sid);
+  if (!v) {
+    v = 'sid_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    localStorage.setItem(_K.sid, v);
+  }
+  return v;
 }
 
-// ─── Cliente HTTP ─────────────────────────────────────────────────────────────
+/** Gera senha criptograficamente segura para clientes guest. */
+function _guestPw() {
+  const a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return Array.from(a).map(b => b.toString(16).padStart(2,'0')).join('');
+}
 
-/**
- * Cliente HTTP interno. Todos os métodos retornam o campo `data` da resposta.
- * Em caso de erro, lança um objeto { code, message }.
- */
-const http = {
-  /** @returns {Record<string, string>} */
+/** Consulta CEP via ViaCEP. Retorna null se inválido. */
+async function cepLookup(cep) {
+  const d = cep.replace(/\D/g, '');
+  if (d.length !== 8) return null;
+  try {
+    const r = await fetch(`https://viacep.com.br/ws/${d}/json/`);
+    const j = await r.json();
+    return j.erro ? null : j;
+  } catch { return null; }
+}
+
+/** Slugifica texto em português. */
+function slugify(t) {
+  return t.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+
+// ─── Tabelas de labels e cores de status ──────────────────────────────────────
+const STATUS_LABEL = {
+  pending: 'Pendente', confirmed: 'Confirmado', processing: 'Processando',
+  shipped: 'Enviado', delivered: 'Entregue', cancelled: 'Cancelado',
+  awaiting: 'Aguardando', paid: 'Pago', failed: 'Falhou', refunded: 'Reembolsado',
+  not_fulfilled: 'Não enviado', fulfilled: 'Enviado', partially_fulfilled: 'Parcial',
+  active: 'Ativo', draft: 'Rascunho', archived: 'Arquivado',
+};
+
+const STATUS_CLASS = {
+  pending: 'bg-yellow-100 text-yellow-800',
+  confirmed: 'bg-blue-100 text-blue-800',
+  processing: 'bg-blue-100 text-blue-800',
+  shipped: 'bg-indigo-100 text-indigo-800',
+  delivered: 'bg-green-100 text-green-800',
+  cancelled: 'bg-red-100 text-red-800',
+  awaiting: 'bg-yellow-100 text-yellow-800',
+  paid: 'bg-green-100 text-green-800',
+  failed: 'bg-red-100 text-red-800',
+  not_fulfilled: 'bg-orange-100 text-orange-800',
+  fulfilled: 'bg-indigo-100 text-indigo-800',
+  active: 'bg-green-100 text-green-800',
+  draft: 'bg-yellow-100 text-yellow-800',
+  archived: 'bg-gray-100 text-gray-700',
+};
+
+function statusLabel(s) { return STATUS_LABEL[s] || s; }
+function statusClass(s)  { return STATUS_CLASS[s]  || 'bg-gray-100 text-gray-700'; }
+
+// ─── Cliente HTTP interno ─────────────────────────────────────────────────────
+const _http = {
   _headers() {
     const h = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem(SESSION_KEY);
-    if (token) h['X-Customer-Token'] = token;
+    const t = localStorage.getItem(_K.ctoken);
+    if (t) h['X-Customer-Token'] = t;
     return h;
   },
 
-  /**
-   * @param {string} path   - Caminho relativo ao API_BASE
-   * @param {RequestInit} [opts]
-   * @returns {Promise<any>}
-   */
-  async _fetch(path, opts = {}) {
-    const res = await fetch(`${API_BASE}${path}`, {
-      ...opts,
-      headers: { ...this._headers(), ...opts.headers },
+  async _fetch(path, opts) {
+    opts = opts || {};
+    const res = await fetch(`${_BASE}${path}`, {
+      ...opts, headers: { ...this._headers(), ...(opts.headers || {}) }
     });
-    const body = await res.json().catch(() => ({ ok: false, error: { code: 'PARSE_ERROR', message: 'Resposta inválida do servidor' } }));
-    if (!res.ok || body.ok === false) {
-      throw body.error || { code: String(res.status), message: 'Erro desconhecido' };
-    }
-    return body.data ?? body;
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || body.ok === false) throw body.error || { code: String(res.status), message: 'Erro de servidor' };
+    return body.data !== undefined ? body.data : body;
   },
 
-  get: (path) => http._fetch(path),
-  post: (path, data) => http._fetch(path, { method: 'POST', body: JSON.stringify(data) }),
-  put: (path, data) => http._fetch(path, { method: 'PUT', body: JSON.stringify(data) }),
-  delete: (path) => http._fetch(path, { method: 'DELETE' }),
+  get:  function(p)    { return this._fetch(p); },
+  post: function(p, d) { return this._fetch(p, { method: 'POST', body: JSON.stringify(d) }); },
+  put:  function(p, d) { return this._fetch(p, { method: 'PUT',  body: JSON.stringify(d) }); },
+  del:  function(p)    { return this._fetch(p, { method: 'DELETE' }); },
 
-  /** GET com paginação — retorna { data, meta } */
-  async getPaginated(path) {
-    const res = await fetch(`${API_BASE}${path}`, { headers: http._headers() });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || body.ok === false) throw body.error || { code: String(res.status), message: 'Erro' };
-    return { data: body.data ?? [], meta: body.meta ?? null };
+  async paginate(path) {
+    const res = await fetch(`${_BASE}${path}`, { headers: this._headers() });
+    const b   = await res.json().catch(() => ({}));
+    if (!res.ok || b.ok === false) throw b.error || {};
+    return { data: b.data || [], meta: b.meta || null };
   },
 };
 
-// ─── Módulos de API ──────────────────────────────────────────────────────────
-
-/**
- * @namespace StoreSDK
- * API pública. Todos os métodos são assíncronos.
- */
+// ─── StoreSDK — API pública ───────────────────────────────────────────────────
 window.StoreSDK = {
+  // utilitários expostos
+  fmtMoney, fmtDate, fmtDateTime, slugify, cepLookup,
+  statusLabel, statusClass,
 
   // ── Autenticação de cliente ─────────────────────────────────────────────
-
   auth: {
-    /**
-     * Cadastra novo cliente na loja.
-     * POST /api/stores/{pid}/auth/register
-     * @param {{ email: string, password: string, first_name: string, last_name: string, phone?: string, marketing_consent?: boolean }} params
-     * @returns {Promise<{ token: string, customer: object }>}
-     */
-    register: (params) => http.post('/auth/register', params),
+    isLoggedIn() { return !!localStorage.getItem(_K.ctoken); },
 
-    /**
-     * Autentica cliente e armazena token no localStorage.
-     * POST /api/stores/{pid}/auth/login
-     * @param {{ email: string, password: string }} params
-     * @returns {Promise<{ token: string, customer: object }>}
-     */
     async login(params) {
-      const data = await http.post('/auth/login', params);
-      if (data.token) localStorage.setItem(SESSION_KEY, data.token);
-      return data;
+      const d = await _http.post('/auth/login', params);
+      if (d && d.token) localStorage.setItem(_K.ctoken, d.token);
+      return d;
     },
 
-    /**
-     * Encerra a sessão do cliente (remove token).
-     * POST /api/stores/{pid}/auth/logout
-     * @returns {Promise<void>}
-     */
+    async register(params) {
+      const d = await _http.post('/auth/register', params);
+      if (d && d.token) localStorage.setItem(_K.ctoken, d.token);
+      return d;
+    },
+
     async logout() {
-      await http.post('/auth/logout', {}).catch(() => {});
-      localStorage.removeItem(SESSION_KEY);
+      await _http.post('/auth/logout', {}).catch(() => {});
+      localStorage.removeItem(_K.ctoken);
     },
 
-    /**
-     * Retorna os dados do cliente autenticado.
-     * GET /api/stores/{pid}/auth/me
-     * @returns {Promise<object>}
-     */
-    me: () => http.get('/auth/me'),
-
-    /**
-     * Verifica se há token de sessão armazenado.
-     * @returns {boolean}
-     */
-    isLoggedIn: () => !!localStorage.getItem(SESSION_KEY),
+    me() { return _http.get('/auth/me'); },
   },
 
   // ── Produtos ────────────────────────────────────────────────────────────
-
   products: {
-    /**
-     * Lista produtos com filtros opcionais e paginação por cursor.
-     * GET /api/stores/{pid}/products?status=&category_id=&featured=&q=&limit=&cursor=
-     * @param {{ status?: string, category_id?: number, featured?: boolean, q?: string, limit?: number, cursor?: string }} [params]
-     * @returns {Promise<{ data: object[], meta: object }>}
-     */
-    list(params = {}) {
-      const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined && v !== '')).toString();
-      return http.getPaginated(`/products${qs ? '?' + qs : ''}`);
+    list(params) {
+      params = params || {};
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(function([,v]){ return v !== '' && v != null; }))
+      );
+      return _http.paginate('/products' + (qs.toString() ? '?' + qs : ''));
     },
-
-    /**
-     * Busca produto completo com variantes e preços.
-     * GET /api/stores/{pid}/products/{pid}
-     * @param {string} pid - UUID do produto
-     * @returns {Promise<object>}
-     */
-    get: (pid) => http.get(`/products/${pid}`),
-
-    /**
-     * Exporta todos os produtos da loja como CSV.
-     * Redireciona o browser para download.
-     */
-    exportCsv() {
-      window.location.href = `${API_BASE}/products/export/csv`;
-    },
-
-    /**
-     * Baixa o CSV template para importação em lote.
-     */
-    downloadTemplate() {
-      window.location.href = `${API_BASE}/products/import/template`;
-    },
+    get(pid) { return _http.get('/products/' + pid); },
+    exportCsv() { window.location.href = _BASE + '/products/export/csv'; },
   },
 
   // ── Categorias ──────────────────────────────────────────────────────────
-
   categories: {
-    /**
-     * Lista todas as categorias da loja (opcionalmente filtradas por pai).
-     * GET /api/stores/{pid}/categories?parent_id=
-     * @param {{ parent_id?: number }} [params]
-     * @returns {Promise<object[]>}
-     */
-    async list(params = {}) {
-      const qs = params.parent_id ? `?parent_id=${params.parent_id}` : '';
-      const res = await http.get(`/categories${qs}`);
-      return Array.isArray(res) ? res : res;
+    list(params) {
+      params = params || {};
+      const qs = new URLSearchParams(
+        Object.fromEntries(Object.entries(params).filter(function([,v]){ return !!v; }))
+      );
+      return _http.get('/categories' + (qs.toString() ? '?' + qs : ''));
     },
-
-    /**
-     * Busca categoria pelo PID.
-     * GET /api/stores/{pid}/categories/{pid}
-     * @param {string} pid
-     * @returns {Promise<object>}
-     */
-    get: (pid) => http.get(`/categories/${pid}`),
+    get(pid) { return _http.get('/categories/' + pid); },
   },
 
   // ── Coleções ────────────────────────────────────────────────────────────
-
   collections: {
-    /**
-     * Lista todas as coleções publicadas.
-     * GET /api/stores/{pid}/collections
-     * @returns {Promise<object[]>}
-     */
-    async list() {
-      const res = await http.get('/collections');
-      return Array.isArray(res) ? res : res;
-    },
-
-    /**
-     * Busca coleção com seus produtos.
-     * GET /api/stores/{pid}/collections/{pid}
-     * @param {string} pid
-     * @returns {Promise<object>}
-     */
-    get: (pid) => http.get(`/collections/${pid}`),
+    list() { return _http.get('/collections'); },
+    get(pid) { return _http.get('/collections/' + pid); },
   },
 
   // ── Carrinho ────────────────────────────────────────────────────────────
-
   cart: {
-    /**
-     * Obtém ou cria o carrinho ativo da sessão.
-     * POST /api/stores/{pid}/carts?session_id=
-     * @returns {Promise<object>} Carrinho com items[]
-     */
     async getOrCreate() {
-      const sessionId = getSessionId();
-      const cart = await http.getPaginated(`/carts?session_id=${sessionId}`)
-        .catch(() => null);
-      if (cart && cart.data && cart.data.pid) return cart.data;
-      // Endpoint retorna carrinho diretamente via POST
-      return http.post('/carts', {}).catch(async () => {
-        // fallback: GET com session_id via query (dependendo de como o backend trata)
-        return http.get(`/carts?session_id=${sessionId}`);
-      });
+      const saved = localStorage.getItem(_K.cart);
+      if (saved) {
+        try {
+          const c = await _http.get('/carts/' + saved);
+          if (c && c.pid) return c;
+        } catch(e) { localStorage.removeItem(_K.cart); }
+      }
+      const sid = _sid();
+      let c;
+      try {
+        c = await _http._fetch('/carts?session_id=' + sid, { method: 'POST', body: '{}' });
+      } catch(e) {
+        c = await _http.get('/carts?session_id=' + sid);
+      }
+      if (c && c.pid) localStorage.setItem(_K.cart, c.pid);
+      return c;
     },
-
-    /**
-     * Busca carrinho pelo PID (UUID).
-     * GET /api/stores/{pid}/carts/{cart_pid}
-     * @param {string} cartPid
-     * @returns {Promise<object>}
-     */
-    get: (cartPid) => http.get(`/carts/${cartPid}`),
-
-    /**
-     * Adiciona ou incrementa item no carrinho.
-     * POST /api/stores/{pid}/carts/{cart_pid}/items
-     * @param {string} cartPid
-     * @param {{ variant_id: number, quantity: number }} params
-     * @returns {Promise<object>} Carrinho atualizado
-     */
-    addItem: (cartPid, params) => http.post(`/carts/${cartPid}/items`, params),
-
-    /**
-     * Atualiza quantidade de item. Quantidade 0 remove o item.
-     * PUT /api/stores/{pid}/carts/{cart_pid}/items/{item_id}
-     * @param {string} cartPid
-     * @param {number} itemId
-     * @param {number} quantity
-     * @returns {Promise<object>} Carrinho atualizado
-     */
-    updateItem: (cartPid, itemId, quantity) =>
-      http.put(`/carts/${cartPid}/items/${itemId}`, { quantity }),
-
-    /**
-     * Remove item do carrinho.
-     * DELETE /api/stores/{pid}/carts/{cart_pid}/items/{item_id}
-     * @param {string} cartPid
-     * @param {number} itemId
-     * @returns {Promise<object>} Carrinho atualizado
-     */
-    removeItem: (cartPid, itemId) => http.delete(`/carts/${cartPid}/items/${itemId}`),
+    get(pid) { return _http.get('/carts/' + pid); },
+    addItem(pid, params) { return _http.post('/carts/' + pid + '/items', params); },
+    updateItem(pid, itemId, qty) { return _http.put('/carts/' + pid + '/items/' + itemId, { quantity: qty }); },
+    removeItem(pid, itemId) { return _http.del('/carts/' + pid + '/items/' + itemId); },
   },
 
   // ── Pedidos ─────────────────────────────────────────────────────────────
-
   orders: {
-    /**
-     * Cria pedido a partir do carrinho ativo.
-     * POST /api/stores/{pid}/orders
-     * @param {{ customer_id: number, shipping_address_id?: number, billing_address_id?: number, payment_method?: string, notes?: string }} params
-     * @returns {Promise<object>} Pedido criado com items[]
-     */
-    create: (params) => http.post('/orders', params),
-
-    /**
-     * Busca pedido pelo PID.
-     * GET /api/stores/{pid}/orders/{order_pid}
-     * @param {string} pid
-     * @returns {Promise<object>}
-     */
-    get: (pid) => http.get(`/orders/${pid}`),
+    create(params) { return _http.post('/orders', params); },
+    get(pid)       { return _http.get('/orders/' + pid); },
+    listForCustomer(customerPid, cursor) {
+      const qs = cursor ? '?cursor=' + cursor : '';
+      return _http.paginate('/customers/' + customerPid + '/orders' + qs);
+    },
   },
 
-  // ── Cliente (perfil) ────────────────────────────────────────────────────
-
+  // ── Cliente ─────────────────────────────────────────────────────────────
   customer: {
-    /**
-     * Busca dados do cliente pelo PID.
-     * GET /api/stores/{pid}/customers/{customer_pid}
-     * @param {string} pid
-     * @returns {Promise<object>}
-     */
-    get: (pid) => http.get(`/customers/${pid}`),
-
-    /**
-     * Atualiza dados do perfil.
-     * PUT /api/stores/{pid}/customers/{customer_pid}
-     * @param {string} pid
-     * @param {{ first_name?: string, last_name?: string, phone?: string, marketing_consent?: boolean }} params
-     * @returns {Promise<object>}
-     */
-    update: (pid, params) => http.put(`/customers/${pid}`, params),
-
-    /**
-     * Lista endereços do cliente.
-     * GET /api/stores/{pid}/customers/{customer_pid}/addresses
-     * @param {string} pid
-     * @returns {Promise<object[]>}
-     */
-    addresses: (pid) => http.get(`/customers/${pid}/addresses`),
-
-    /**
-     * Adiciona endereço ao cliente.
-     * POST /api/stores/{pid}/customers/{customer_pid}/addresses
-     * @param {string} pid
-     * @param {{ first_name: string, last_name: string, address_line_1: string, city: string, state: string, postal_code: string, country?: string, phone?: string, is_default_shipping?: boolean, is_default_billing?: boolean }} params
-     * @returns {Promise<object>}
-     */
-    addAddress: (pid, params) => http.post(`/customers/${pid}/addresses`, params),
+    get(pid)           { return _http.get('/customers/' + pid); },
+    update(pid, p)     { return _http.put('/customers/' + pid, p); },
+    addresses(pid)     { return _http.get('/customers/' + pid + '/addresses'); },
+    addAddress(pid, p) { return _http.post('/customers/' + pid + '/addresses', p); },
   },
 
-  // ── Helpers ─────────────────────────────────────────────────────────────
-
-  /** Formata centavos para moeda. Ex.: formatMoney(1990) → "R$ 19,90" */
-  formatMoney,
-  /** Formata data ISO para pt-BR. */
-  formatDate,
-  /** Gera slug a partir de texto. */
-  slugify,
+  // ── Wishlist (localStorage) ─────────────────────────────────────────────
+  wishlist: {
+    _load() { try { return JSON.parse(localStorage.getItem(_K.wish) || '[]'); } catch { return []; } },
+    _save(a) { localStorage.setItem(_K.wish, JSON.stringify(a)); },
+    all()    { return this._load(); },
+    has(pid) { return this._load().includes(pid); },
+    toggle(pid) {
+      const a = this._load();
+      const i = a.indexOf(pid);
+      i === -1 ? a.push(pid) : a.splice(i, 1);
+      this._save(a);
+      return i === -1; // true = adicionado, false = removido
+    },
+    clear() { localStorage.removeItem(_K.wish); },
+  },
 };
 
-// ─── Alpine.js Stores globais ─────────────────────────────────────────────────
+// ─── Alpine.js Stores ─────────────────────────────────────────────────────────
+document.addEventListener('alpine:init', function() {
 
-document.addEventListener('alpine:init', () => {
-
-  // ── $store.toasts ──────────────────────────────────────────────────────
-
-  /**
-   * Fila de notificações toast.
-   *
-   * Template de exemplo (coloque no <body>):
-   *
-   *   <div x-data class="fixed bottom-4 right-4 z-50 space-y-2">
-   *     <template x-for="t in $store.toasts.items" :key="t.id">
-   *       <div x-show="true" class="bg-white shadow rounded p-3 flex items-center gap-2">
-   *         <span x-text="t.message"></span>
-   *       </div>
-   *     </template>
-   *   </div>
-   */
+  // $store.toasts — notificações toast
+  // Layout mínimo necessário (cole uma vez no base layout):
+  //
+  //   <div x-data class="fixed bottom-4 right-4 z-50 space-y-2 pointer-events-none">
+  //     <template x-for="t in $store.toasts.items" :key="t.id">
+  //       <div x-show="true" x-transition
+  //            class="bg-white border shadow-lg rounded-xl px-4 py-3 flex items-center gap-3 max-w-sm pointer-events-auto"
+  //            :class="{'border-green-400':t.type==='success','border-red-400':t.type==='error','border-yellow-400':t.type==='warning','border-blue-400':t.type==='info'}">
+  //         <span x-text="t.message" class="flex-1 text-sm text-gray-800"></span>
+  //         <button @click="$store.toasts.dismiss(t.id)" class="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+  //       </div>
+  //     </template>
+  //   </div>
   Alpine.store('toasts', {
     items: [],
-    /**
-     * Exibe um toast.
-     * @param {string} message
-     * @param {'success'|'error'|'warning'|'info'} [type]
-     */
-    show(message, type = 'info') {
-      const id = Date.now();
+    _add(message, type) {
+      const id = Date.now() + Math.random();
       this.items.push({ id, message, type });
-      setTimeout(() => this.dismiss(id), 4500);
+      const self = this;
+      setTimeout(function() { self.dismiss(id); }, 5000);
     },
-    success: (msg) => Alpine.store('toasts').show(msg, 'success'),
-    error: (msg) => Alpine.store('toasts').show(msg, 'error'),
-    warning: (msg) => Alpine.store('toasts').show(msg, 'warning'),
-    info: (msg) => Alpine.store('toasts').show(msg, 'info'),
-    dismiss(id) { this.items = this.items.filter(t => t.id !== id); },
+    success: function(m) { this._add(m, 'success'); },
+    error:   function(m) { this._add(m, 'error'); },
+    warning: function(m) { this._add(m, 'warning'); },
+    info:    function(m) { this._add(m, 'info'); },
+    dismiss: function(id) { this.items = this.items.filter(function(t) { return t.id !== id; }); },
   });
 
-  // ── $store.customer ────────────────────────────────────────────────────
-
-  /**
-   * Estado do cliente logado.
-   *
-   * Uso:
-   *   <span x-show="$store.customer.isLoggedIn" x-text="$store.customer.data?.first_name"></span>
-   *   <button @click="$store.customer.logout()">Sair</button>
-   */
+  // $store.customer — estado do cliente logado
   Alpine.store('customer', {
-    isLoggedIn: StoreSDK.auth.isLoggedIn(),
-    data: null,
+    ok:      StoreSDK.auth.isLoggedIn(),
+    data:    null,
     loading: false,
 
-    /** Carrega dados do cliente autenticado. Chame no init da página. */
-    async fetch() {
-      if (!this.isLoggedIn) return;
+    async boot() {
+      if (!this.ok) return;
       this.loading = true;
-      try {
-        this.data = await StoreSDK.auth.me();
-      } catch {
-        this.logout();
-      } finally {
-        this.loading = false;
-      }
+      try { this.data = await StoreSDK.auth.me(); }
+      catch(e) { this.ok = false; localStorage.removeItem(_K.ctoken); }
+      finally { this.loading = false; }
     },
 
-    /** Efetua login e atualiza o store. */
     async login(email, password) {
-      const result = await StoreSDK.auth.login({ email, password });
-      this.isLoggedIn = true;
-      this.data = result.customer;
-      return result;
+      const r = await StoreSDK.auth.login({ email, password });
+      this.ok   = true;
+      this.data = (r && r.customer) ? r.customer : null;
+      return r;
     },
 
-    /** Cadastra novo cliente. */
     async register(params) {
-      const result = await StoreSDK.auth.register(params);
-      if (result.token) {
-        localStorage.setItem(SESSION_KEY, result.token);
-        this.isLoggedIn = true;
-        this.data = result.customer;
-      }
-      return result;
+      const r = await StoreSDK.auth.register(params);
+      this.ok   = true;
+      this.data = (r && r.customer) ? r.customer : null;
+      return r;
     },
 
-    /** Encerra sessão. */
     async logout() {
       await StoreSDK.auth.logout();
-      this.isLoggedIn = false;
+      this.ok   = false;
       this.data = null;
     },
   });
 
-  // ── $store.cart ────────────────────────────────────────────────────────
-
-  /**
-   * Estado do carrinho ativo.
-   *
-   * Uso:
-   *   <span x-text="$store.cart.itemCount + ' itens'"></span>
-   *   <span x-text="StoreSDK.formatMoney($store.cart.data?.total ?? 0)"></span>
-   *   <button @click="$store.cart.open()">Abrir carrinho</button>
-   */
+  // $store.cart — carrinho reativo global
   Alpine.store('cart', {
-    data: null,
-    isOpen: false,
+    data:    null,
+    open:    false,
     loading: false,
 
-    /** Total de itens (soma de quantidades). */
-    get itemCount() {
-      if (!this.data?.items) return 0;
-      return this.data.items.reduce((acc, i) => acc + i.quantity, 0);
-    },
+    get count() { return ((this.data && this.data.items) ? this.data.items : []).reduce(function(s,i){ return s + i.quantity; }, 0); },
+    get total() { return (this.data && this.data.total) ? this.data.total : 0; },
+    get items() { return (this.data && this.data.items) ? this.data.items : []; },
 
-    /** Carrega ou cria o carrinho da sessão. */
-    async init() {
-      const savedPid = localStorage.getItem(CART_KEY);
-      if (savedPid) {
-        try {
-          this.data = await StoreSDK.cart.get(savedPid);
-          return;
-        } catch { localStorage.removeItem(CART_KEY); }
-      }
-      await this.refresh();
-    },
-
-    /** Cria/recarrega o carrinho. */
-    async refresh() {
+    async boot() {
       this.loading = true;
-      try {
-        const sessionId = getSessionId();
-        // O backend aceita session_id como query param no POST
-        this.data = await http._fetch(`/carts?session_id=${sessionId}`, { method: 'POST', body: '{}' })
-          .catch(() => http.get(`/carts?session_id=${sessionId}`));
-        if (this.data?.pid) localStorage.setItem(CART_KEY, this.data.pid);
-      } catch { /* silencioso */ }
+      try { this.data = await StoreSDK.cart.getOrCreate(); }
+      catch(e) { console.warn('cart.boot:', e); }
       finally { this.loading = false; }
     },
 
-    /** Adiciona produto ao carrinho. */
-    async addItem(variantId, quantity = 1) {
-      if (!this.data?.pid) await this.refresh();
+    async addItem(variantId, quantity) {
+      quantity = quantity || 1;
+      if (!this.data || !this.data.pid) await this.boot();
       this.loading = true;
       try {
-        this.data = await StoreSDK.cart.addItem(this.data.pid, { variant_id: variantId, quantity });
+        this.data = await StoreSDK.cart.addItem(this.data.pid, { variant_id: variantId, quantity: quantity });
         Alpine.store('toasts').success('Produto adicionado ao carrinho!');
-        this.isOpen = true;
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Erro ao adicionar produto');
+        this.open = true;
+      } catch(e) {
+        Alpine.store('toasts').error((e && e.message) ? e.message : 'Não foi possível adicionar o produto');
       } finally { this.loading = false; }
     },
 
-    /** Atualiza quantidade de um item. */
     async updateItem(itemId, quantity) {
       this.loading = true;
-      try {
-        this.data = await StoreSDK.cart.updateItem(this.data.pid, itemId, quantity);
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Erro ao atualizar item');
-      } finally { this.loading = false; }
+      try { this.data = await StoreSDK.cart.updateItem(this.data.pid, itemId, quantity); }
+      catch(e) { Alpine.store('toasts').error((e && e.message) ? e.message : 'Erro ao atualizar item'); }
+      finally { this.loading = false; }
     },
 
-    /** Remove item do carrinho. */
     async removeItem(itemId) {
       this.loading = true;
       try {
         this.data = await StoreSDK.cart.removeItem(this.data.pid, itemId);
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Erro ao remover item');
-      } finally { this.loading = false; }
+        Alpine.store('toasts').info('Item removido do carrinho');
+      } catch(e) { Alpine.store('toasts').error((e && e.message) ? e.message : 'Erro ao remover item'); }
+      finally { this.loading = false; }
     },
-
-    open() { this.isOpen = true; },
-    close() { this.isOpen = false; },
   });
 
+  // $store.wishlist — favoritos
+  Alpine.store('wishlist', {
+    pids: StoreSDK.wishlist.all(),
+    get count() { return this.pids.length; },
+    has(pid)    { return this.pids.includes(pid); },
+    toggle(pid) {
+      const added = StoreSDK.wishlist.toggle(pid);
+      this.pids   = StoreSDK.wishlist.all();
+      Alpine.store('toasts')[added ? 'success' : 'info'](
+        added ? 'Adicionado aos favoritos!' : 'Removido dos favoritos'
+      );
+      return added;
+    },
+  });
+
+  // Boot automático
+  requestAnimationFrame(async function() {
+    if (!_PID) return;
+    await Alpine.store('cart').boot().catch(function(){});
+    await Alpine.store('customer').boot().catch(function(){});
+  });
 });
 
-// ─── Componentes Alpine.js (factories) ───────────────────────────────────────
+// ─── Componentes (x-data factories) ──────────────────────────────────────────
 
 /**
- * Lista de produtos com filtros, busca e paginação por cursor.
+ * ProductList(defaults)
+ * Lista de produtos com filtros, busca debounce e paginação cursor.
  *
- * Uso:
- *   <div x-data="ProductList({ status: 'active', limit: 12 })" x-init="init()">
+ * @param {object} defaults - { status, category_id, featured, q, limit }
+ *
+ * Uso mínimo:
+ *   <div x-data="ProductList({ limit: 12 })" x-init="init()">
+ *     <input x-model="filters.q" @input.debounce.400ms="search($event.target.value)">
+ *     <select x-model="filters.status" @change="filter('status',$event.target.value)">
+ *       <option value="active">Ativos</option>
+ *     </select>
  *     <template x-for="p in products" :key="p.pid">
- *       <div x-text="p.title"></div>
+ *       <a :href="'/produto/'+p.slug">
+ *         <img :src="p.image_url||'/static/images/placeholder.png'" :alt="p.title">
+ *         <p x-text="p.title"></p>
+ *       </a>
  *     </template>
- *     <button @click="loadMore()" x-show="hasMore">Carregar mais</button>
+ *     <button @click="loadMore()" x-show="hasMore" :disabled="loading">Carregar mais</button>
  *   </div>
- *
- * @param {{ status?: string, category_id?: number, featured?: boolean, q?: string, limit?: number }} [defaults]
  */
-window.ProductList = function (defaults = {}) {
+window.ProductList = function(defaults) {
+  defaults = defaults || {};
   return {
     products: [],
-    loading: false,
-    hasMore: false,
-    cursor: null,
+    loading:  false,
+    hasMore:  false,
+    cursor:   null,
     filters: {
-      status: defaults.status ?? 'active',
-      category_id: defaults.category_id ?? '',
-      featured: defaults.featured ?? '',
-      q: defaults.q ?? '',
-      limit: defaults.limit ?? 20,
+      status:      defaults.status      !== undefined ? defaults.status      : 'active',
+      category_id: defaults.category_id !== undefined ? defaults.category_id : '',
+      featured:    defaults.featured    !== undefined ? defaults.featured    : '',
+      q:           defaults.q           !== undefined ? defaults.q           : '',
+      limit:       defaults.limit       !== undefined ? defaults.limit       : 20,
     },
 
-    async init() { await this.fetch(true); },
+    async init()       { await this._load(true); },
+    async loadMore()   { if (this.hasMore && !this.loading) await this._load(false); },
+    async search(q)    { this.filters.q = q; await this._load(true); },
+    async filter(k, v) { this.filters[k] = v; await this._load(true); },
+    async refresh()    { await this._load(true); },
 
-    /** Busca (re)inicializando a lista. */
-    async fetch(reset = true) {
+    async _load(reset) {
       if (reset) { this.products = []; this.cursor = null; }
       this.loading = true;
       try {
-        const params = { ...this.filters };
-        if (this.cursor) params.cursor = this.cursor;
-        // Remove valores vazios
-        Object.keys(params).forEach(k => (params[k] === '' || params[k] === undefined) && delete params[k]);
-        const { data, meta } = await StoreSDK.products.list(params);
-        this.products = reset ? data : [...this.products, ...data];
-        this.hasMore = meta?.has_more ?? false;
-        this.cursor = meta?.cursor ?? null;
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Erro ao carregar produtos');
+        const p = Object.assign({}, this.filters);
+        if (this.cursor) p.cursor = this.cursor;
+        Object.keys(p).forEach(function(k){ if (p[k] === '' || p[k] == null) delete p[k]; });
+        const result = await StoreSDK.products.list(p);
+        const data   = result.data || [];
+        const meta   = result.meta || {};
+        this.products = reset ? data : this.products.concat(data);
+        this.hasMore  = !!meta.has_more;
+        this.cursor   = meta.cursor || null;
+      } catch(e) {
+        Alpine.store('toasts').error((e && e.message) ? e.message : 'Erro ao carregar produtos');
       } finally { this.loading = false; }
     },
 
-    /** Carrega próxima página. */
-    async loadMore() { if (this.hasMore && !this.loading) await this.fetch(false); },
-
-    /** Aplica filtro e reinicia lista. */
-    async applyFilter(key, value) { this.filters[key] = value; await this.fetch(true); },
-
-    /** Atualiza busca por texto (debounce recomendado no template). */
-    async search(q) { this.filters.q = q; await this.fetch(true); },
+    fmtMoney: fmtMoney,
+    statusLabel: statusLabel,
+    statusClass: statusClass,
   };
 };
 
 /**
- * Detalhe de produto único com variantes e seleção de opções.
+ * ProductDetail(pid)
+ * Detalhe de produto: galeria, seleção de variantes/opções, preço por quantidade, carrinho.
  *
- * Uso:
- *   <div x-data="ProductDetail('uuid-do-produto')" x-init="init()">
- *     <h1 x-text="product?.title"></h1>
- *     <template x-for="v in variants" :key="v.pid">
- *       <button @click="selectVariant(v)" x-text="v.title"></button>
+ * Uso mínimo:
+ *   <div x-data="ProductDetail('{{ product.pid }}')" x-init="init()">
+ *     <img :src="mainImage" :alt="product?.title">
+ *     <!-- Galeria -->
+ *     <template x-for="(img,i) in images" :key="i">
+ *       <img :src="img" @click="mainImage=img" :class="{'ring-2':mainImage===img}">
  *     </template>
- *     <span x-text="selectedPrice"></span>
- *     <button @click="addToCart()">Adicionar ao carrinho</button>
+ *     <h1 x-text="product?.title"></h1>
+ *     <p x-text="selectedPrice"></p>
+ *     <!-- Opções (Cor, Tamanho…) -->
+ *     <template x-for="opt in options" :key="opt.name">
+ *       <div>
+ *         <p x-text="opt.name"></p>
+ *         <template x-for="val in opt.values" :key="val">
+ *           <button @click="selectOption(opt.name, val)"
+ *                   :class="{'ring-2': selectedOptions[opt.name]===val}"
+ *                   x-text="val">
+ *           </button>
+ *         </template>
+ *       </div>
+ *     </template>
+ *     <!-- Quantidade -->
+ *     <button @click="qty > 1 && qty--">-</button>
+ *     <span x-text="qty"></span>
+ *     <button @click="qty++">+</button>
+ *     <!-- Ações -->
+ *     <button @click="addToCart()" :disabled="!inStock || $store.cart.loading">
+ *       <span x-show="inStock">Adicionar ao carrinho</span>
+ *       <span x-show="!inStock">Sem estoque</span>
+ *     </button>
+ *     <button @click="toggleWishlist()">
+ *       <span x-show="!inWishlist">♡ Favoritar</span>
+ *       <span x-show="inWishlist">♥ Favoritado</span>
+ *     </button>
  *   </div>
- *
- * @param {string} productPid - UUID do produto
  */
-window.ProductDetail = function (productPid) {
+window.ProductDetail = function(pid) {
   return {
-    product: null,
-    variants: [],
+    product:         null,
+    variants:        [],
+    images:          [],
+    mainImage:       '',
     selectedVariant: null,
-    quantity: 1,
-    loading: false,
+    selectedOptions: {},
+    qty:             1,
+    loading:         false,
+    inWishlist:      StoreSDK.wishlist.has(pid),
 
     async init() {
       this.loading = true;
       try {
-        this.product = await StoreSDK.products.get(productPid);
-        this.variants = this.product.variants ?? [];
-        if (this.variants.length > 0) this.selectedVariant = this.variants[0];
-      } catch (e) {
+        this.product  = await StoreSDK.products.get(pid);
+        this.variants = (this.product && this.product.variants) ? this.product.variants : [];
+        this.images   = (this.product && this.product.images)
+          ? this.product.images.map(function(i){ return i.url || i; })
+          : [];
+        this.mainImage = this.images[0] || '/static/images/placeholder.png';
+        if (this.variants.length > 0) this._pick(this.variants[0]);
+      } catch(e) {
         Alpine.store('toasts').error('Produto não encontrado');
       } finally { this.loading = false; }
     },
 
-    /** Preço formatado da variante selecionada. */
+    _pick(v) { this.selectedVariant = v; },
+
+    selectVariant(v) { this._pick(v); },
+
+    selectOption(key, value) {
+      this.selectedOptions[key] = value;
+      const opts = this.selectedOptions;
+      const match = this.variants.find(function(v) {
+        const o = v.option_values || {};
+        return Object.keys(opts).every(function(k){ return o[k] === opts[k]; });
+      });
+      if (match) this._pick(match);
+    },
+
+    get options() {
+      const map = {};
+      this.variants.forEach(function(v) {
+        Object.entries(v.option_values || {}).forEach(function([k, val]) {
+          if (!map[k]) map[k] = [];
+          if (!map[k].includes(val)) map[k].push(val);
+        });
+      });
+      return Object.entries(map).map(function([name, values]) { return { name, values }; });
+    },
+
     get selectedPrice() {
-      const prices = this.selectedVariant?.prices ?? [];
-      const price = prices.find(p => p.min_quantity <= this.quantity) ?? prices[0];
-      return price ? StoreSDK.formatMoney(price.amount, price.currency) : 'Consultar';
+      const prices = (this.selectedVariant && this.selectedVariant.prices) ? this.selectedVariant.prices : [];
+      if (!prices.length) return 'Consultar';
+      const qty = this.qty;
+      const price = prices.slice().sort(function(a,b){ return b.min_quantity - a.min_quantity; })
+        .find(function(p){ return qty >= p.min_quantity; }) || prices[0];
+      return fmtMoney(price.amount, price.currency || 'BRL');
     },
 
-    /** Seleciona uma variante. */
-    selectVariant(variant) { this.selectedVariant = variant; },
+    get inStock() {
+      if (!this.selectedVariant) return false;
+      return this.selectedVariant.inventory_quantity > 0 || !!this.selectedVariant.allow_backorder;
+    },
 
-    /** Adiciona variante selecionada ao carrinho. */
     async addToCart() {
-      if (!this.selectedVariant) {
-        Alpine.store('toasts').warning('Selecione uma variante');
-        return;
-      }
-      await Alpine.store('cart').addItem(this.selectedVariant.id, this.quantity);
+      if (!this.selectedVariant) { Alpine.store('toasts').warning('Selecione uma opção'); return; }
+      if (!this.inStock)          { Alpine.store('toasts').warning('Produto sem estoque'); return; }
+      await Alpine.store('cart').addItem(this.selectedVariant.id, this.qty);
     },
+
+    toggleWishlist() {
+      const added   = Alpine.store('wishlist').toggle(this.product.pid);
+      this.inWishlist = added;
+    },
+
+    fmtMoney: fmtMoney,
   };
 };
 
 /**
- * Lista de categorias com suporte a hierarquia.
+ * CategoryList(opts)
+ * Lista/árvore de categorias.
  *
- * Uso:
+ * Uso mínimo:
  *   <div x-data="CategoryList()" x-init="init()">
  *     <template x-for="c in categories" :key="c.pid">
- *       <a :href="'/categoria/' + c.slug" x-text="c.name"></a>
+ *       <a :href="'/categoria/'+c.slug" x-text="c.name"></a>
  *     </template>
  *   </div>
- *
- * @param {{ parent_id?: number }} [opts]
  */
-window.CategoryList = function (opts = {}) {
+window.CategoryList = function(opts) {
+  opts = opts || {};
   return {
     categories: [],
-    loading: false,
-
+    loading:    false,
     async init() {
       this.loading = true;
-      try {
-        this.categories = await StoreSDK.categories.list(opts);
-      } catch (e) {
-        Alpine.store('toasts').error('Erro ao carregar categorias');
-      } finally { this.loading = false; }
+      try { this.categories = (await StoreSDK.categories.list(opts)) || []; }
+      catch(e) { Alpine.store('toasts').error('Erro ao carregar categorias'); }
+      finally { this.loading = false; }
     },
   };
 };
 
 /**
- * Detalhe de coleção com seus produtos.
+ * CollectionDetail(pid)
+ * Coleção com seus produtos.
  *
- * Uso:
- *   <div x-data="CollectionDetail('uuid-da-colecao')" x-init="init()">
+ * Uso mínimo:
+ *   <div x-data="CollectionDetail('{{ collection.pid }}')" x-init="init()">
  *     <h2 x-text="collection?.title"></h2>
- *     <template x-for="p in products" :key="p.pid">
- *       ...
- *     </template>
+ *     <template x-for="p in products" :key="p.pid">…</template>
  *   </div>
- *
- * @param {string} collectionPid - UUID da coleção
  */
-window.CollectionDetail = function (collectionPid) {
+window.CollectionDetail = function(pid) {
   return {
     collection: null,
-    products: [],
-    loading: false,
-
+    products:   [],
+    loading:    false,
     async init() {
       this.loading = true;
       try {
-        this.collection = await StoreSDK.collections.get(collectionPid);
-        // O endpoint retorna produtos embutidos em collection.products
-        this.products = this.collection.products ?? [];
-      } catch (e) {
-        Alpine.store('toasts').error('Coleção não encontrada');
-      } finally { this.loading = false; }
+        this.collection = await StoreSDK.collections.get(pid);
+        this.products   = (this.collection && this.collection.products) ? this.collection.products : [];
+      } catch(e) { Alpine.store('toasts').error('Coleção não encontrada'); }
+      finally { this.loading = false; }
     },
+    fmtMoney: fmtMoney,
   };
 };
 
 /**
- * Gaveta lateral do carrinho.
+ * CartPage()
+ * Página dedicada do carrinho com edição de quantidades.
  *
- * Uso:
+ * Uso mínimo:
+ *   <div x-data="CartPage()" x-init="init()">
+ *     <template x-for="item in $store.cart.items" :key="item.pid">
+ *       <div>
+ *         <span x-text="item.quantity"></span>
+ *         <button @click="dec(item)">-</button>
+ *         <button @click="inc(item)">+</button>
+ *         <button @click="$store.cart.removeItem(item.id)">✕</button>
+ *         <span x-text="fmtMoney(item.total)"></span>
+ *       </div>
+ *     </template>
+ *     <strong x-text="fmtMoney($store.cart.total)"></strong>
+ *     <a href="/checkout">Finalizar compra</a>
+ *   </div>
+ */
+window.CartPage = function() {
+  return {
+    async init()    { await Alpine.store('cart').boot(); },
+    async inc(item) { await Alpine.store('cart').updateItem(item.id, item.quantity + 1); },
+    async dec(item) {
+      if (item.quantity > 1) await Alpine.store('cart').updateItem(item.id, item.quantity - 1);
+      else await Alpine.store('cart').removeItem(item.id);
+    },
+    fmtMoney: fmtMoney,
+  };
+};
+
+/**
+ * CartDrawer()
+ * Mini-carrinho em gaveta lateral.
+ *
+ * Uso mínimo:
  *   <div x-data="CartDrawer()" x-init="init()">
- *     <!-- Botão flutuante -->
- *     <button @click="$store.cart.open()">
- *       Carrinho (<span x-text="$store.cart.itemCount"></span>)
+ *     <button @click="$store.cart.open=true">
+ *       🛒 <span x-text="$store.cart.count"></span>
  *     </button>
- *
- *     <!-- Gaveta -->
- *     <div x-show="$store.cart.isOpen" @click.outside="$store.cart.close()">
- *       <template x-for="item in $store.cart.data?.items ?? []" :key="item.pid">
- *         <div>
- *           <span x-text="item.quantity + 'x'"></span>
- *           <span x-text="formatMoney(item.total)"></span>
- *           <button @click="$store.cart.removeItem(item.id)">✕</button>
+ *     <div x-show="$store.cart.open" @click="$store.cart.open=false"
+ *          class="fixed inset-0 bg-black/40 z-40"></div>
+ *     <div x-show="$store.cart.open" x-transition
+ *          class="fixed right-0 top-0 h-full w-96 bg-white z-50 shadow-xl flex flex-col">
+ *       <div class="flex-1 overflow-y-auto p-6 space-y-4">
+ *         <template x-for="item in $store.cart.items" :key="item.pid">
+ *           <div class="flex gap-3">
+ *             <div class="flex-1">
+ *               <p x-text="item.title"></p>
+ *               <div class="flex items-center gap-2 mt-1">
+ *                 <button @click="dec(item)">-</button>
+ *                 <span x-text="item.quantity"></span>
+ *                 <button @click="inc(item)">+</button>
+ *               </div>
+ *             </div>
+ *             <p x-text="fmtMoney(item.total)"></p>
+ *           </div>
+ *         </template>
+ *         <p x-show="!$store.cart.count" class="text-center text-gray-400">Carrinho vazio</p>
+ *       </div>
+ *       <div class="p-6 border-t">
+ *         <div class="flex justify-between font-bold mb-4">
+ *           <span>Total</span><span x-text="fmtMoney($store.cart.total)"></span>
  *         </div>
- *       </template>
- *       <strong x-text="formatMoney($store.cart.data?.total ?? 0)"></strong>
- *       <a href="/checkout">Finalizar compra</a>
+ *         <a href="/checkout"
+ *            class="block w-full text-center bg-black text-white py-3 rounded-lg font-semibold">
+ *           Finalizar compra
+ *         </a>
+ *       </div>
  *     </div>
  *   </div>
  */
-window.CartDrawer = function () {
+window.CartDrawer = function() {
   return {
-    async init() {
-      await Alpine.store('cart').init();
+    async init()    { await Alpine.store('cart').boot(); },
+    async inc(item) { await Alpine.store('cart').updateItem(item.id, item.quantity + 1); },
+    async dec(item) {
+      if (item.quantity > 1) await Alpine.store('cart').updateItem(item.id, item.quantity - 1);
+      else await Alpine.store('cart').removeItem(item.id);
     },
-    formatMoney: StoreSDK.formatMoney,
+    fmtMoney: fmtMoney,
   };
 };
 
 /**
- * Formulário de checkout.
+ * SearchBar(opts)
+ * Busca em tempo real com dropdown de resultados.
  *
- * Uso:
- *   <div x-data="CheckoutForm()" x-init="init()">
- *     <!-- Etapa 1: Email -->
- *     <input x-model="form.email" type="email" placeholder="Seu e-mail">
- *
- *     <!-- Etapa 2: Endereço -->
- *     <input x-model="form.address.first_name" placeholder="Nome">
- *     <input x-model="form.address.postal_code" @blur="fetchAddress()" placeholder="CEP">
- *
- *     <!-- Resumo -->
- *     <span x-text="formatMoney($store.cart.data?.total ?? 0)"></span>
- *
- *     <!-- Finalizar -->
- *     <button @click="submit()" :disabled="loading">
- *       <span x-show="!loading">Finalizar pedido</span>
- *       <span x-show="loading">Processando...</span>
- *     </button>
+ * Uso mínimo:
+ *   <div x-data="SearchBar()" @keydown.escape.window="close()">
+ *     <input x-model="query" @input.debounce.300ms="search()"
+ *            placeholder="Buscar produtos…">
+ *     <div x-show="open" @click.outside="close()">
+ *       <template x-for="p in results" :key="p.pid">
+ *         <a :href="'/produto/'+p.slug" @click="close()" x-text="p.title"></a>
+ *       </template>
+ *     </div>
  *   </div>
  */
-window.CheckoutForm = function () {
+window.SearchBar = function(opts) {
+  opts = opts || {};
   return {
-    step: 1,          // 1: identificação | 2: endereço | 3: pagamento | 4: confirmação
+    query:   '',
+    results: [],
     loading: false,
-    order: null,
-    form: {
-      email: '',
-      first_name: '',
-      last_name: '',
-      phone: '',
-      address: {
-        first_name: '',
-        last_name: '',
-        address_line_1: '',
-        address_line_2: '',
-        city: '',
-        state: '',
-        postal_code: '',
-        country: 'BR',
-        phone: '',
-      },
-      payment_method: 'pix',
-      notes: '',
-    },
+    open:    false,
+    limit:   opts.limit || 8,
 
-    async init() {
-      await Alpine.store('cart').init();
-      // Preenche email se cliente já estiver logado
-      if (Alpine.store('customer').data) {
-        const c = Alpine.store('customer').data;
-        this.form.email = c.email ?? '';
-        this.form.first_name = c.first_name ?? '';
-        this.form.last_name = c.last_name ?? '';
-      }
-    },
-
-    /**
-     * Consulta CEP via ViaCEP e preenche endereço.
-     * Requer acesso à API pública viacep.com.br.
-     */
-    async fetchAddress() {
-      const cep = this.form.address.postal_code.replace(/\D/g, '');
-      if (cep.length !== 8) return;
-      try {
-        const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-        const data = await res.json();
-        if (!data.erro) {
-          this.form.address.address_line_1 = data.logradouro ?? '';
-          this.form.address.city = data.localidade ?? '';
-          this.form.address.state = data.uf ?? '';
-        }
-      } catch { /* silencioso */ }
-    },
-
-    /** Avança para o próximo passo. */
-    nextStep() { this.step = Math.min(this.step + 1, 3); },
-    prevStep() { this.step = Math.max(this.step - 1, 1); },
-
-    /** Submete o pedido. */
-    async submit() {
+    async search() {
+      if (this.query.trim().length < 2) { this.results = []; this.open = false; return; }
       this.loading = true;
       try {
-        // 1. Garante ou cria customer
-        let customer = Alpine.store('customer').data;
-        if (!customer) {
-          try {
-            const reg = await StoreSDK.auth.register({
-              email: this.form.email,
-              first_name: this.form.first_name,
-              last_name: this.form.last_name,
-              phone: this.form.phone,
-              password: Math.random().toString(36).slice(2, 10), // senha aleatória para guest
-            });
-            customer = reg.customer;
-            if (reg.token) localStorage.setItem(SESSION_KEY, reg.token);
-          } catch {
-            // cliente já existe — tenta login ou usa anônimo
-          }
-        }
-
-        // 2. Adiciona endereço se necessário
-        let addressId = null;
-        if (customer?.pid) {
-          const addr = await StoreSDK.customer.addAddress(customer.pid, {
-            ...this.form.address,
-            is_default_shipping: true,
-          });
-          addressId = addr.id;
-        }
-
-        // 3. Cria o pedido
-        this.order = await StoreSDK.orders.create({
-          customer_id: customer?.id,
-          shipping_address_id: addressId,
-          payment_method: this.form.payment_method,
-          notes: this.form.notes,
-        });
-
-        this.step = 4; // confirmação
-        localStorage.removeItem(CART_KEY);
-        Alpine.store('cart').data = null;
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Erro ao finalizar pedido');
-      } finally { this.loading = false; }
+        const r = await StoreSDK.products.list({ q: this.query, limit: this.limit, status: 'active' });
+        this.results = r.data || [];
+        this.open    = this.results.length > 0;
+      } catch(e) { this.results = []; }
+      finally { this.loading = false; }
     },
 
-    formatMoney: StoreSDK.formatMoney,
+    close() { this.open = false; this.query = ''; this.results = []; },
+    fmtMoney: fmtMoney,
   };
 };
 
 /**
- * Login e cadastro de cliente.
+ * CustomerAuth(opts)
+ * Login + cadastro de cliente em um único componente.
  *
- * Uso:
- *   <div x-data="CustomerAuth()" x-init="init()">
- *     <!-- Login -->
- *     <div x-show="mode === 'login'">
+ * Uso mínimo:
+ *   <div x-data="CustomerAuth({ redirectOnLogin: '/minha-conta' })">
+ *     <!-- LOGIN -->
+ *     <div x-show="mode==='login'">
  *       <input x-model="form.email" type="email" placeholder="E-mail">
  *       <input x-model="form.password" type="password" placeholder="Senha">
- *       <button @click="login()">Entrar</button>
- *       <a @click="mode = 'register'">Criar conta</a>
+ *       <p x-show="errors.auth" x-text="errors.auth" class="text-red-500 text-sm"></p>
+ *       <button @click="login()" :disabled="loading">Entrar</button>
+ *       <button @click="mode='register'">Criar conta</button>
  *     </div>
- *
- *     <!-- Cadastro -->
- *     <div x-show="mode === 'register'">
- *       <input x-model="form.email" type="email">
+ *     <!-- CADASTRO -->
+ *     <div x-show="mode==='register'">
  *       <input x-model="form.first_name" placeholder="Nome">
  *       <input x-model="form.last_name" placeholder="Sobrenome">
+ *       <input x-model="form.email" type="email">
  *       <input x-model="form.password" type="password">
- *       <button @click="register()">Criar conta</button>
- *       <a @click="mode = 'login'">Já tenho conta</a>
+ *       <button @click="register()" :disabled="loading">Criar conta</button>
+ *       <button @click="mode='login'">Já tenho conta</button>
  *     </div>
  *   </div>
- *
- * @param {{ redirectOnLogin?: string }} [opts]
  */
-window.CustomerAuth = function (opts = {}) {
+window.CustomerAuth = function(opts) {
+  opts = opts || {};
   return {
-    mode: 'login',    // 'login' | 'register'
+    mode:    'login',
     loading: false,
+    errors:  {},
     form: {
-      email: '',
-      password: '',
-      first_name: '',
-      last_name: '',
-      phone: '',
-      marketing_consent: false,
+      email: '', password: '', first_name: '', last_name: '',
+      phone: '', marketing_consent: false,
     },
 
     init() {
-      if (Alpine.store('customer').isLoggedIn && opts.redirectOnLogin) {
+      if (StoreSDK.auth.isLoggedIn() && opts.redirectOnLogin) {
         window.location.href = opts.redirectOnLogin;
       }
     },
 
     async login() {
-      this.loading = true;
+      this.errors = {}; this.loading = true;
       try {
         await Alpine.store('customer').login(this.form.email, this.form.password);
         Alpine.store('toasts').success('Bem-vindo de volta!');
         if (opts.redirectOnLogin) window.location.href = opts.redirectOnLogin;
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Credenciais inválidas');
+      } catch(e) {
+        this.errors.auth = (e && e.message) ? e.message : 'E-mail ou senha inválidos';
+        Alpine.store('toasts').error(this.errors.auth);
       } finally { this.loading = false; }
     },
 
     async register() {
-      this.loading = true;
+      this.errors = {}; this.loading = true;
       try {
         await Alpine.store('customer').register(this.form);
-        Alpine.store('toasts').success('Conta criada com sucesso!');
+        Alpine.store('toasts').success('Conta criada! Bem-vindo(a)!');
         if (opts.redirectOnLogin) window.location.href = opts.redirectOnLogin;
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Erro ao criar conta');
+      } catch(e) {
+        this.errors.auth = (e && e.message) ? e.message : 'Erro ao criar conta';
+        Alpine.store('toasts').error(this.errors.auth);
       } finally { this.loading = false; }
     },
   };
 };
 
 /**
- * Página de conta do cliente (perfil + endereços + pedidos).
+ * CustomerAccount()
+ * Painel do cliente: perfil, endereços, histórico de pedidos.
  *
- * Uso:
+ * Uso mínimo:
  *   <div x-data="CustomerAccount()" x-init="init()">
- *     <p x-text="profile?.first_name + ' ' + profile?.last_name"></p>
- *     <template x-for="a in addresses" :key="a.pid">
- *       <div x-text="a.address_line_1 + ', ' + a.city"></div>
- *     </template>
+ *     <button @click="tab='profile'">Perfil</button>
+ *     <button @click="tab='addresses'">Endereços</button>
+ *     <button @click="tab='orders'">Pedidos</button>
+ *     <div x-show="tab==='profile'">
+ *       <p x-text="profile?.first_name + ' ' + profile?.last_name"></p>
+ *       <p x-text="profile?.email"></p>
+ *     </div>
+ *     <div x-show="tab==='orders'">
+ *       <template x-for="o in orders" :key="o.pid">
+ *         <div x-text="o.order_number + ' — ' + fmtMoney(o.total)"></div>
+ *       </template>
+ *     </div>
  *     <button @click="logout()">Sair</button>
  *   </div>
  */
-window.CustomerAccount = function () {
+window.CustomerAccount = function() {
   return {
-    profile: null,
+    tab:       'profile',
+    profile:   null,
     addresses: [],
-    loading: false,
+    orders:    [],
+    loading:   false,
 
     async init() {
-      if (!Alpine.store('customer').isLoggedIn) {
-        window.location.href = '/login';
-        return;
-      }
+      if (!StoreSDK.auth.isLoggedIn()) { window.location.href = '/conta/login'; return; }
       this.loading = true;
       try {
-        await Alpine.store('customer').fetch();
+        await Alpine.store('customer').boot();
         this.profile = Alpine.store('customer').data;
-        if (this.profile?.pid) {
-          this.addresses = await StoreSDK.customer.addresses(this.profile.pid);
+        if (this.profile && this.profile.pid) {
+          const [addrs, ords] = await Promise.all([
+            StoreSDK.customer.addresses(this.profile.pid).catch(function(){ return []; }),
+            StoreSDK.orders.listForCustomer(this.profile.pid)
+              .then(function(r){ return r.data || []; }).catch(function(){ return []; }),
+          ]);
+          this.addresses = addrs;
+          this.orders    = ords;
         }
-      } catch { /* silencioso */ }
-      finally { this.loading = false; }
+      } finally { this.loading = false; }
     },
 
     async logout() {
       await Alpine.store('customer').logout();
-      window.location.href = '/';
+      window.location.href = '/conta/login';
     },
 
     async addAddress(params) {
@@ -1057,54 +891,214 @@ window.CustomerAccount = function () {
         const addr = await StoreSDK.customer.addAddress(this.profile.pid, params);
         this.addresses.push(addr);
         Alpine.store('toasts').success('Endereço adicionado!');
-      } catch (e) {
-        Alpine.store('toasts').error(e.message || 'Erro ao adicionar endereço');
+      } catch(e) {
+        Alpine.store('toasts').error((e && e.message) ? e.message : 'Erro ao adicionar endereço');
       }
     },
 
-    formatMoney: StoreSDK.formatMoney,
-    formatDate: StoreSDK.formatDate,
+    fmtMoney: fmtMoney,
+    fmtDate:  fmtDate,
+    statusLabel: statusLabel,
+    statusClass: statusClass,
   };
 };
 
 /**
- * Barra de busca de produtos com debounce.
+ * CheckoutForm()
+ * Checkout completo em 3 etapas: identificação → endereço → pagamento → confirmação.
  *
- * Uso:
- *   <div x-data="SearchBar()" @keydown.escape.window="close()">
- *     <input x-ref="input" x-model="query" @input.debounce.300ms="search()" placeholder="Buscar...">
- *     <ul x-show="results.length > 0">
- *       <template x-for="p in results" :key="p.pid">
- *         <li><a :href="'/produto/' + p.slug" x-text="p.title"></a></li>
- *       </template>
- *     </ul>
+ * Uso mínimo:
+ *   <div x-data="CheckoutForm()" x-init="init()">
+ *     <!-- Step 1 -->
+ *     <div x-show="step===1">
+ *       <input x-model="form.email" type="email" placeholder="E-mail">
+ *       <input x-model="form.first_name" placeholder="Nome">
+ *       <input x-model="form.last_name" placeholder="Sobrenome">
+ *       <button @click="nextStep()">Continuar</button>
+ *     </div>
+ *     <!-- Step 2 -->
+ *     <div x-show="step===2">
+ *       <input x-model="form.addr.postal_code" @blur="lookupCep()" placeholder="CEP">
+ *       <input x-model="form.addr.address_line_1" placeholder="Rua e número">
+ *       <input x-model="form.addr.city" placeholder="Cidade">
+ *       <input x-model="form.addr.state" placeholder="UF" maxlength="2">
+ *       <button @click="prevStep()">Voltar</button>
+ *       <button @click="nextStep()">Continuar</button>
+ *     </div>
+ *     <!-- Step 3 -->
+ *     <div x-show="step===3">
+ *       <label><input type="radio" x-model="form.payment" value="pix"> PIX</label>
+ *       <label><input type="radio" x-model="form.payment" value="credit_card"> Cartão</label>
+ *       <div x-text="fmtMoney($store.cart.total)"></div>
+ *       <p x-show="error" x-text="error" class="text-red-500"></p>
+ *       <button @click="prevStep()">Voltar</button>
+ *       <button @click="submit()" :disabled="loading">Finalizar pedido</button>
+ *     </div>
+ *     <!-- Step 4 (confirmação) -->
+ *     <div x-show="step===4">
+ *       <p x-text="'Pedido ' + order?.order_number + ' realizado!'"></p>
+ *       <a href="/">Continuar comprando</a>
+ *     </div>
  *   </div>
  */
-window.SearchBar = function () {
+window.CheckoutForm = function() {
   return {
-    query: '',
-    results: [],
+    step:    1,
     loading: false,
-    open: false,
-
-    async search() {
-      if (this.query.trim().length < 2) { this.results = []; return; }
-      this.loading = true;
-      try {
-        const { data } = await StoreSDK.products.list({ q: this.query, limit: 8 });
-        this.results = data;
-        this.open = data.length > 0;
-      } catch { this.results = []; }
-      finally { this.loading = false; }
+    order:   null,
+    error:   '',
+    form: {
+      email: '', first_name: '', last_name: '', phone: '',
+      addr: {
+        first_name: '', last_name: '',
+        address_line_1: '', address_line_2: '',
+        city: '', state: '', postal_code: '', country: 'BR', phone: '',
+      },
+      payment: 'pix',
+      notes:   '',
     },
 
-    close() { this.open = false; this.results = []; },
+    async init() {
+      await Alpine.store('cart').boot();
+      if (Alpine.store('cart').count === 0) { window.location.href = '/carrinho'; return; }
+      const cd = Alpine.store('customer').data;
+      if (cd) {
+        this.form.email      = cd.email      || '';
+        this.form.first_name = cd.first_name || '';
+        this.form.last_name  = cd.last_name  || '';
+        this.form.phone      = cd.phone      || '';
+      }
+    },
+
+    nextStep() { this.step = Math.min(this.step + 1, 3); },
+    prevStep() { this.step = Math.max(this.step - 1, 1); },
+
+    async lookupCep() {
+      const d = await cepLookup(this.form.addr.postal_code);
+      if (d) {
+        this.form.addr.address_line_1 = d.logradouro || '';
+        this.form.addr.city           = d.localidade || '';
+        this.form.addr.state          = d.uf          || '';
+      }
+    },
+
+    async submit() {
+      this.error = ''; this.loading = true;
+      try {
+        let customerId  = Alpine.store('customer').data && Alpine.store('customer').data.id;
+        let customerPid = Alpine.store('customer').data && Alpine.store('customer').data.pid;
+
+        if (!customerPid) {
+          const reg = await StoreSDK.auth.register({
+            email:      this.form.email,
+            first_name: this.form.first_name,
+            last_name:  this.form.last_name,
+            phone:      this.form.phone,
+            password:   _guestPw(),
+          }).catch(function(){ return null; });
+          if (reg && reg.customer) {
+            customerId  = reg.customer.id;
+            customerPid = reg.customer.pid;
+          }
+        }
+
+        let addrId = null;
+        if (customerPid) {
+          const fAddr = Object.assign({}, this.form.addr, {
+            first_name:          this.form.addr.first_name || this.form.first_name,
+            last_name:           this.form.addr.last_name  || this.form.last_name,
+            is_default_shipping: true,
+            is_default_billing:  true,
+          });
+          const addr = await StoreSDK.customer.addAddress(customerPid, fAddr).catch(function(){ return null; });
+          if (addr) addrId = addr.id;
+        }
+
+        this.order = await StoreSDK.orders.create({
+          customer_id:         customerId,
+          shipping_address_id: addrId,
+          billing_address_id:  addrId,
+          payment_method:      this.form.payment,
+          notes:               this.form.notes,
+        });
+
+        localStorage.removeItem(_K.cart);
+        Alpine.store('cart').data = null;
+        this.step = 4;
+      } catch(e) {
+        this.error = (e && e.message) ? e.message : 'Erro ao finalizar pedido. Tente novamente.';
+        Alpine.store('toasts').error(this.error);
+      } finally { this.loading = false; }
+    },
+
+    fmtMoney: fmtMoney,
   };
 };
 
-// ─── Inicialização automática ─────────────────────────────────────────────────
+/**
+ * WishlistPage()
+ * Página de favoritos.
+ *
+ * Uso mínimo:
+ *   <div x-data="WishlistPage()" x-init="init()">
+ *     <div x-show="!loading && products.length===0">Nenhum favorito ainda.</div>
+ *     <template x-for="p in products" :key="p.pid">
+ *       <div>
+ *         <a :href="'/produto/'+p.slug" x-text="p.title"></a>
+ *         <button @click="remove(p.pid)">Remover</button>
+ *       </div>
+ *     </template>
+ *   </div>
+ */
+window.WishlistPage = function() {
+  return {
+    products: [],
+    loading:  false,
+    async init() {
+      const pids = StoreSDK.wishlist.all();
+      if (!pids.length) return;
+      this.loading = true;
+      try {
+        const results = await Promise.allSettled(pids.map(function(pid){ return StoreSDK.products.get(pid); }));
+        this.products = results.filter(function(r){ return r.status === 'fulfilled'; }).map(function(r){ return r.value; });
+      } finally { this.loading = false; }
+    },
+    remove(pid) {
+      Alpine.store('wishlist').toggle(pid);
+      this.products = this.products.filter(function(p){ return p.pid !== pid; });
+    },
+    fmtMoney: fmtMoney,
+  };
+};
 
-document.addEventListener('alpine:init', () => {
-  // Carrega dados do cliente logado ao iniciar a página
-  Alpine.store('customer').fetch().catch(() => {});
-});
+/**
+ * OrderDetail(pid)
+ * Detalhe de um pedido (pós-compra ou histórico).
+ *
+ * Uso mínimo:
+ *   <div x-data="OrderDetail('{{ order_pid }}')" x-init="init()">
+ *     <p x-text="order?.order_number"></p>
+ *     <span x-text="statusLabel(order?.status)"></span>
+ *     <template x-for="item in (order?.items || [])" :key="item.pid">
+ *       <p x-text="item.quantity + 'x ' + item.title + ' — ' + fmtMoney(item.total)"></p>
+ *     </template>
+ *     <strong x-text="fmtMoney(order?.total)"></strong>
+ *   </div>
+ */
+window.OrderDetail = function(pid) {
+  return {
+    order:   null,
+    loading: false,
+    async init() {
+      this.loading = true;
+      try { this.order = await StoreSDK.orders.get(pid); }
+      catch(e) { Alpine.store('toasts').error('Pedido não encontrado'); }
+      finally { this.loading = false; }
+    },
+    statusLabel: statusLabel,
+    statusClass: statusClass,
+    fmtMoney:    fmtMoney,
+    fmtDate:     fmtDate,
+    fmtDateTime: fmtDateTime,
+  };
+};

@@ -23,6 +23,7 @@ use crate::{
 };
 use crate::controllers::dashboard; // import dashboard controller
 use crate::controllers::admin_dashboard; // import admin dashboard API controller
+use crate::controllers::{painel, painel_api}; // import store collaborator panel
 
 pub struct App;
 #[async_trait]
@@ -73,6 +74,8 @@ impl Hooks for App {
             .add_route(controllers::customers::routes())
                 .add_route(controllers::collections::routes())
                 .add_route(controllers::payments::routes())
+                .add_route(painel::routes())
+                .add_route(painel_api::routes())
     }
 
     async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {

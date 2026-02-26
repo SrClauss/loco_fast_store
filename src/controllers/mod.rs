@@ -4,6 +4,8 @@ pub mod categories;
 pub mod collections;
 pub mod customers;
 pub mod orders;
+pub mod painel;
+pub mod painel_api;
 pub mod products;
 pub mod stores;
 pub mod payments;
