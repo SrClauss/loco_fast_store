@@ -77,13 +77,40 @@ fn slugify(title: &str) -> String {
 }
 
 impl Model {
+    /// Gera um slug único para a loja, evitando colisões adicionando sufixo numérico
+    pub async fn generate_unique_slug(
+        db: &DatabaseConnection,
+        store_id: i32,
+        base_slug: &str,
+        exclude_id: Option<i32>,
+    ) -> ModelResult<String> {
+        let mut candidate = base_slug.to_string();
+        let mut counter = 1u32;
+        loop {
+            let mut query = Entity::find()
+                .filter(products::Column::StoreId.eq(store_id))
+                .filter(products::Column::Slug.eq(candidate.as_str()))
+                .filter(products::Column::DeletedAt.is_null());
+            if let Some(id) = exclude_id {
+                query = query.filter(products::Column::Id.ne(id));
+            }
+            let existing = query.one(db).await?;
+            if existing.is_none() {
+                return Ok(candidate);
+            }
+            candidate = format!("{}{}", base_slug, counter);
+            counter += 1;
+        }
+    }
+
     /// Cria um novo produto
     pub async fn create_product(
         db: &DatabaseConnection,
         store_id: i32,
         params: &CreateProductParams,
     ) -> ModelResult<Self> {
-        let slug = params.slug.clone().unwrap_or_else(|| slugify(&params.title));
+        let base_slug = params.slug.clone().unwrap_or_else(|| slugify(&params.title));
+        let slug = Self::generate_unique_slug(db, store_id, &base_slug, None).await?;
         let handle = params.handle.clone().unwrap_or_else(|| slug.clone());
 
         let product = products::ActiveModel {
@@ -163,6 +190,20 @@ impl Model {
             .all(db)
             .await?;
 
+        Ok(products)
+    }
+
+    /// Lista todos os produtos da loja sem paginação (para exportação CSV)
+    pub async fn list_all_for_store(
+        db: &DatabaseConnection,
+        store_id: i32,
+    ) -> ModelResult<Vec<Self>> {
+        let products = Entity::find()
+            .filter(products::Column::StoreId.eq(store_id))
+            .filter(products::Column::DeletedAt.is_null())
+            .order_by_asc(products::Column::Id)
+            .all(db)
+            .await?;
         Ok(products)
     }
 }
