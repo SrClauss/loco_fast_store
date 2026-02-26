@@ -18,10 +18,9 @@ impl BackgroundWorker<AnalyticsFlushWorkerArgs> for AnalyticsFlushWorker {
     }
 
     async fn perform(&self, _args: AnalyticsFlushWorkerArgs) -> Result<()> {
-        let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1".to_string());
         let sled_path = std::env::var("SLED_PATH").unwrap_or_else(|_| "./data/analytics_sled".to_string());
 
-        let analytics = AnalyticsService::new(&redis_url, &sled_path)
+        let analytics = AnalyticsService::new(&sled_path)
             .map_err(|e| loco_rs::Error::Message(format!("Failed to init analytics: {}", e)))?;
 
         let count = analytics

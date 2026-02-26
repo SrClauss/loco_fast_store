@@ -37,13 +37,11 @@ impl BackgroundWorker<AbandonedCartWorkerArgs> for AbandonedCartWorker {
             );
 
             // Registra evento de analytics
-            let redis_url =
-                std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1".to_string());
             let sled_path =
                 std::env::var("SLED_PATH").unwrap_or_else(|_| "./data/analytics_sled".to_string());
 
             if let Ok(analytics) =
-                crate::services::analytics::AnalyticsService::new(&redis_url, &sled_path)
+                crate::services::analytics::AnalyticsService::new(&sled_path)
             {
                 let event = crate::services::analytics::AnalyticsEvent {
                     session_id: cart.session_id.clone(),

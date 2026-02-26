@@ -149,11 +149,9 @@ async fn webhook(
             if let Some(cart) = carts::Entity::find_by_id(cart_id).one(&ctx.db).await? {
                 let session_id = cart.session_id.clone();
                 crate::env::load();
-                let redis_url = std::env::var("REDIS_URL")
-                    .unwrap_or_else(|_| "redis://127.0.0.1".to_string());
                 let sled_path = std::env::var("SLED_PATH")
                     .unwrap_or_else(|_| "./data/analytics_sled".to_string());
-                if let Ok(analytics) = AnalyticsService::new(&redis_url, &sled_path) {
+                if let Ok(analytics) = AnalyticsService::new(&sled_path) {
                     let _ = analytics
                         .track_event(&AnalyticsEvent {
                             session_id,

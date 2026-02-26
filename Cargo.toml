@@ -51,7 +51,7 @@ unic-langid = { version = "0.9" }
 axum-extra = { version = "0.10", features = ["form"] }
 # --- dependências do e-commerce ---
 rust_decimal = { version = "1.36", features = ["serde-with-str"] }
-redis = { version = "0.27", features = ["tokio-comp", "aio"] }
+moka = { version = "0.12", features = ["future"] }
 sled = { version = "0.34" }
 rust-s3 = { version = "0.35", features = ["tokio-rustls-tls"], default-features = false }
 tower = { version = "0.5" }
