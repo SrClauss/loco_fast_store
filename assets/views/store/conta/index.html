@@ -1,7 +1,7 @@
-{%% extends "store/layouts/base.html" %%}
-{%% block title %%}Minha Conta{%% endblock %%}
+{% extends "store/layouts/base.html" %}
+{% block title %}Minha Conta{% endblock %}
 
-{%% block content %%}
+{% block content %}
 <div class="max-w-5xl mx-auto px-4 py-10">
   <div x-data="CustomerAccount()" x-init="init()">
     <div class="flex gap-8">
@@ -94,4 +94,4 @@
     </div>
   </div>
 </div>
-{%% endblock %%}
+{% endblock %}

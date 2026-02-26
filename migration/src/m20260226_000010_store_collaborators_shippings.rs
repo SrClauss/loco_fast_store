@@ -5,6 +5,7 @@ pub struct Migration;
 
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
+    #[allow(clippy::too_many_lines)]
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         // ── store_collaborators ──────────────────────────────────────
         // Vincula usuários do sistema como colaboradores de uma loja,

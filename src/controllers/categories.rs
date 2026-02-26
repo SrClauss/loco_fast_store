@@ -1,5 +1,6 @@
 use axum::extract::Query;
 use loco_rs::prelude::*;
+use sea_orm::EntityTrait;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -110,6 +111,19 @@ async fn remove(
     format::json(ApiResponse::<()>::success(()))
 }
 
+/// GET /api/admin/categories - Lista todas categorias (admin)
+#[debug_handler]
+async fn admin_list(
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    let categories = crate::models::_entities::categories::Entity::find()
+        .all(&ctx.db)
+        .await?;
+    let response: Vec<CategoryResponse> =
+        categories.into_iter().map(CategoryResponse::from).collect();
+    format::json(ApiResponse::success(response))
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api/stores/{store_pid}/categories")
@@ -118,4 +132,10 @@ pub fn routes() -> Routes {
         .add("/{pid}", get(get_one))
         .add("/{pid}", put(update))
         .add("/{pid}", delete(remove))
+}
+
+pub fn admin_routes() -> Routes {
+    Routes::new()
+        .prefix("/api/admin")
+        .add("/categories", get(admin_list))
 }

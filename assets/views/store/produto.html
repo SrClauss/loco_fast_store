@@ -1,7 +1,7 @@
-{%% extends "store/layouts/base.html" %%}
-{%% block title %%}Produto{%% endblock %%}
+{% extends "store/layouts/base.html" %}
+{% block title %}Produto{% endblock %}
 
-{%% block content %%}
+{% block content %}
 <div class="max-w-7xl mx-auto px-4 py-10">
   <div x-data="ProductDetail('{{ product_pid }}')" x-init="init()">
 
@@ -94,4 +94,4 @@
     </div>
   </div>
 </div>
-{%% endblock %%}
+{% endblock %}

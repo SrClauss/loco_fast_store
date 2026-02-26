@@ -4,7 +4,6 @@
 /// - Gerar presigned URLs para upload direto do browser
 /// - Verificar existência de objetos
 /// - Deletar objetos
-
 use s3::bucket::Bucket;
 use s3::creds::Credentials;
 use s3::Region;

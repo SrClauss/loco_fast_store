@@ -1,6 +1,7 @@
 use axum::extract::Query;
 use loco_rs::prelude::*;
-use serde::Deserialize;
+use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, PaginatorTrait};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -146,6 +147,79 @@ async fn update_status(
     format::json(ApiResponse::success(OrderResponse::from(updated)))
 }
 
+/// Stats para painel admin
+#[derive(Debug, Serialize)]
+pub struct OrderStats {
+    pub total: u64,
+    pub pending: u64,
+    pub confirmed: u64,
+    pub processing: u64,
+    pub shipped: u64,
+    pub delivered: u64,
+    pub cancelled: u64,
+}
+
+/// GET /api/admin/orders/stats
+#[debug_handler]
+async fn admin_stats(
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    use crate::models::_entities::orders;
+    
+    let total = orders::Entity::find().count(&ctx.db).await?;
+    let pending = orders::Entity::find()
+        .filter(orders::Column::Status.eq("pending"))
+        .count(&ctx.db)
+        .await?;
+    let confirmed = orders::Entity::find()
+        .filter(orders::Column::Status.eq("confirmed"))
+        .count(&ctx.db)
+        .await?;
+    let processing = orders::Entity::find()
+        .filter(orders::Column::Status.eq("processing"))
+        .count(&ctx.db)
+        .await?;
+    let shipped = orders::Entity::find()
+        .filter(orders::Column::Status.eq("shipped"))
+        .count(&ctx.db)
+        .await?;
+    let delivered = orders::Entity::find()
+        .filter(orders::Column::Status.eq("delivered"))
+        .count(&ctx.db)
+        .await?;
+    let cancelled = orders::Entity::find()
+        .filter(orders::Column::Status.eq("cancelled"))
+        .count(&ctx.db)
+        .await?;
+    
+    let stats = OrderStats {
+        total,
+        pending,
+        confirmed,
+        processing,
+        shipped,
+        delivered,
+        cancelled,
+    };
+    
+    format::json(stats)
+}
+
+/// GET /api/admin/orders
+#[debug_handler]
+async fn admin_list(
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    use crate::models::_entities::orders;
+    
+    let orders_list = orders::Entity::find()
+        .all(&ctx.db)
+        .await?;
+    let response: Vec<OrderResponse> =
+        orders_list.into_iter().map(OrderResponse::from).collect();
+    format::json(ApiResponse::success(response))
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api/stores/{store_pid}/orders")
@@ -153,4 +227,11 @@ pub fn routes() -> Routes {
         .add("/", get(list))
         .add("/{pid}", get(get_one))
         .add("/{pid}/status", put(update_status))
+}
+
+pub fn admin_routes() -> Routes {
+    Routes::new()
+        .prefix("/api/admin")
+        .add("/orders/stats", get(admin_stats))
+        .add("/orders", get(admin_list))
 }

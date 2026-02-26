@@ -485,6 +485,22 @@ fn build_slugs_zip(slugs: &[String]) -> std::io::Result<Vec<u8>> {
     Ok(cursor.into_inner())
 }
 
+/// GET /api/admin/products - Lista todos produtos (admin)
+#[debug_handler]
+async fn admin_list(
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    use crate::models::_entities::products;
+    use sea_orm::EntityTrait;
+    
+    let products = products::Entity::find()
+        .all(&ctx.db)
+        .await?;
+    let response: Vec<ProductResponse> =
+        products.into_iter().map(ProductResponse::from).collect();
+    format::json(ApiResponse::success(response))
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api/stores/{store_pid}/products")
@@ -498,4 +514,10 @@ pub fn routes() -> Routes {
         .add("/{pid}", put(update))
         .add("/{pid}", delete(remove))
         .add("/{pid}/variants", post(create_variant))
+}
+
+pub fn admin_routes() -> Routes {
+    Routes::new()
+        .prefix("/api/admin")
+        .add("/products", get(admin_list))
 }

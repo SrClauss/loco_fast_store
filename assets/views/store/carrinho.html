@@ -1,7 +1,7 @@
-{%% extends "store/layouts/base.html" %%}
-{%% block title %%}Carrinho{%% endblock %%}
+{% extends "store/layouts/base.html" %}
+{% block title %}Carrinho{% endblock %}
 
-{%% block content %%}
+{% block content %}
 <div class="max-w-5xl mx-auto px-4 py-10">
   <h1 class="text-3xl font-bold text-gray-900 mb-8">Carrinho</h1>
   <div x-data="CartPage()" x-init="init()" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -52,4 +52,4 @@
     </div>
   </div>
 </div>
-{%% endblock %%}
+{% endblock %}

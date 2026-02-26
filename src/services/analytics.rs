@@ -1,14 +1,17 @@
-/// Serviço de analytics: Redis (cache quente, TTL 7 dias) → Sled (persistência)
-///
-/// Eventos rastreados:
-/// - product_view: visitou a página de um produto
-/// - product_detail_expand: expandiu detalhes (fotos, descrição longa)
-/// - product_revisit: revisitou o mesmo produto (namoro)
-/// - cart_add: adicionou ao carrinho
-/// - cart_abandon: carrinho abandonado (detectado pelo worker)
-/// - checkout_start: começou checkout
-/// - checkout_complete: finalizou compra
-/// - search: busca de produto
+#![allow(clippy::uninlined_format_args, clippy::missing_errors_doc, clippy::doc_markdown)]
+
+//! Serviço de analytics: Redis (cache quente, TTL 7 dias) → Sled (persistência)
+//!
+//! Eventos rastreados:
+//! - product_view: visitou a página de um produto
+//! - product_detail_expand: expandiu detalhes (fotos, descrição longa)
+//! - product_revisit: revisitou o mesmo produto (namoro)
+//! - cart_add: adicionou ao carrinho
+//! - cart_abandon: carrinho abandonado (detectado pelo worker)
+//! - checkout_start: começou checkout
+//! - checkout_complete: finalizou compra
+//! - search: busca de produto
+
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;

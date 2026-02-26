@@ -2,7 +2,6 @@
 /// Rastreia automaticamente product_view e detecta revisitas
 ///
 /// Implementado como initializer do Loco que adiciona um layer ao Router
-
 use async_trait::async_trait;
 use axum::{
     extract::Request,

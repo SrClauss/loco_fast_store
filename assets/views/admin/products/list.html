@@ -70,11 +70,13 @@
         </thead>
         <tbody class="bg-white divide-y divide-gray-200">
           <template x-if="loading">
-            <tr x-for="i in 5" :key="i">
-              <td class="table-cell" colspan="8">
-                <div class="skeleton h-12 w-full"></div>
-              </td>
-            </tr>
+            <template x-for="i in 5" :key="i">
+              <tr>
+                <td class="table-cell" colspan="8">
+                  <div class="skeleton h-12 w-full"></div>
+                </td>
+              </tr>
+            </template>
           </template>
 
           <template x-if="!loading && products.length === 0">

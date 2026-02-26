@@ -27,11 +27,13 @@
   <!-- Categories grid -->
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     <template x-if="loading">
-      <div x-for="i in 6" :key="i" class="card">
-        <div class="card-body">
-          <div class="skeleton h-40 w-full"></div>
+      <template x-for="i in 6" :key="i">
+        <div class="card">
+          <div class="card-body">
+            <div class="skeleton h-40 w-full"></div>
+          </div>
         </div>
-      </div>
+      </template>
     </template>
 
     <template x-for="category in categories" :key="category.id">

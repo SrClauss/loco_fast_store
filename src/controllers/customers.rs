@@ -1,6 +1,7 @@
 use axum::extract::Query;
 use loco_rs::prelude::*;
-use serde::Deserialize;
+use sea_orm::{EntityTrait, PaginatorTrait};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
@@ -141,6 +142,49 @@ async fn list_addresses(
     format::json(ApiResponse::success(response))
 }
 
+/// Stats para painel admin
+#[derive(Debug, Serialize)]
+pub struct CustomerStats {
+    pub total: u64,
+    pub active: u64,
+    pub with_orders: u64,
+}
+
+/// GET /api/admin/customers/stats
+#[debug_handler]
+async fn admin_stats(
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    use crate::models::_entities::customers;
+    
+    let total = customers::Entity::find().count(&ctx.db).await?;
+    let active = total; // Simplificado por enquanto
+    let with_orders = 0; // TODO: implementar query de customers com pedidos
+    
+    let stats = CustomerStats {
+        total,
+        active,
+        with_orders,
+    };
+    
+    format::json(stats)
+}
+
+/// GET /api/admin/customers
+#[debug_handler]
+async fn admin_list(
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    use crate::models::_entities::customers;
+    
+    let customers_list = customers::Entity::find()
+        .all(&ctx.db)
+        .await?;
+    let response: Vec<CustomerResponse> =
+        customers_list.into_iter().map(CustomerResponse::from).collect();
+    format::json(ApiResponse::success(response))
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api/stores/{store_pid}/customers")
@@ -150,4 +194,11 @@ pub fn routes() -> Routes {
         .add("/{pid}", put(update))
         .add("/{pid}/addresses", post(add_address))
         .add("/{pid}/addresses", get(list_addresses))
+}
+
+pub fn admin_routes() -> Routes {
+    Routes::new()
+        .prefix("/api/admin")
+        .add("/customers/stats", get(admin_stats))
+        .add("/customers", get(admin_list))
 }

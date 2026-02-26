@@ -1,7 +1,7 @@
-{%% extends "store/layouts/base.html" %%}
-{%% block title %%}Checkout{%% endblock %%}
+{% extends "store/layouts/base.html" %}
+{% block title %}Checkout{% endblock %}
 
-{%% block content %%}
+{% block content %}
 <div class="max-w-4xl mx-auto px-4 py-10">
   <div x-data="CheckoutForm()" x-init="init()">
 
@@ -162,4 +162,4 @@
     </div>
   </div>
 </div>
-{%% endblock %%}
+{% endblock %}
