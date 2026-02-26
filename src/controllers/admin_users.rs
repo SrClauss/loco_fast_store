@@ -1,15 +1,8 @@
-use crate::{
-    models::{
-        _entities::users,
-        users::RegisterParams,
-    },
-};
-use axum::{
-    extract::{State, Path},
-};
-use loco_rs::{prelude::*, hash};
-use serde::{Deserialize, Serialize};
+use crate::models::{_entities::users, users::RegisterParams};
+use axum::extract::{Path, State};
+use loco_rs::{hash, prelude::*};
 use sea_orm::{EntityTrait, PaginatorTrait, QueryOrder};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UserParams {
@@ -51,18 +44,13 @@ pub struct ErrorResponse {
 
 /// Lista todos os usuários (GET /api/admin/users)
 #[debug_handler]
-pub async fn list_users(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+pub async fn list_users(State(ctx): State<AppContext>) -> Result<Response> {
     let users = users::Entity::find()
         .order_by_desc(users::Column::CreatedAt)
         .all(&ctx.db)
         .await?;
 
-    let response: Vec<UserResponse> = users
-        .into_iter()
-        .map(UserResponse::from)
-        .collect();
+    let response: Vec<UserResponse> = users.into_iter().map(UserResponse::from).collect();
 
     format::json(response)
 }
@@ -125,10 +113,7 @@ pub async fn create_user(
             format::json(UserResponse::from(user))
         }
         Err(err) => {
-            tracing::error!(
-                error = err.to_string(),
-                "erro ao criar usuário"
-            );
+            tracing::error!(error = err.to_string(), "erro ao criar usuário");
 
             format::json(ErrorResponse {
                 error: "Erro ao criar usuário. Tente novamente.".to_string(),
@@ -186,8 +171,8 @@ pub async fn update_user(
                 });
             }
 
-            let password_hash = hash::hash_password(&password)
-                .map_err(|_| Error::InternalServerError)?;
+            let password_hash =
+                hash::hash_password(&password).map_err(|_| Error::InternalServerError)?;
             user.password = sea_orm::Set(password_hash);
         }
     }
@@ -204,14 +189,9 @@ pub async fn update_user(
 
 /// Deleta um usuário (DELETE /api/admin/users/:id)
 #[debug_handler]
-pub async fn delete_user(
-    State(ctx): State<AppContext>,
-    Path(id): Path<i32>,
-) -> Result<Response> {
+pub async fn delete_user(State(ctx): State<AppContext>, Path(id): Path<i32>) -> Result<Response> {
     // Verificar se não é o único usuário
-    let total_users = users::Entity::find()
-        .count(&ctx.db)
-        .await?;
+    let total_users = users::Entity::find().count(&ctx.db).await?;
 
     if total_users <= 1 {
         return format::json(ErrorResponse {
@@ -228,9 +208,7 @@ pub async fn delete_user(
     let user_email = user.email.clone();
     let user_pid = user.pid.to_string();
 
-    users::Entity::delete_by_id(id)
-        .exec(&ctx.db)
-        .await?;
+    users::Entity::delete_by_id(id).exec(&ctx.db).await?;
 
     tracing::info!(
         user_pid = user_pid,

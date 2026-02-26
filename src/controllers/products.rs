@@ -1,19 +1,19 @@
-use axum::extract::Query;
 use axum::extract::Multipart;
+use axum::extract::Query;
 use axum::http::header;
 use loco_rs::prelude::*;
-use uuid::Uuid;
 use std::io::{Cursor, Write};
+use uuid::Uuid;
 
 use crate::{
     dto::{
-        entities::{ProductResponse, VariantResponse, PriceResponse},
+        entities::{PriceResponse, ProductResponse, VariantResponse},
         response::ApiResponse,
     },
     models::{
         _entities::users,
-        products::{CreateProductParams, ProductListParams, UpdateProductParams},
         product_variants::{CreateVariantParams, Model as VariantModel},
+        products::{CreateProductParams, ProductListParams, UpdateProductParams},
     },
 };
 
@@ -25,8 +25,7 @@ async fn create(
     Json(params): Json<CreateProductParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let product =
-        crate::models::products::Model::create_product(&ctx.db, &params).await?;
+    let product = crate::models::products::Model::create_product(&ctx.db, &params).await?;
     format::json(ApiResponse::success(ProductResponse::from(product)))
 }
 
@@ -36,8 +35,7 @@ async fn list(
     State(ctx): State<AppContext>,
     Query(params): Query<ProductListParams>,
 ) -> Result<Response> {
-    let products =
-        crate::models::products::Model::list_for_store(&ctx.db, &params).await?;
+    let products = crate::models::products::Model::list_for_store(&ctx.db, &params).await?;
 
     let limit = params.limit.unwrap_or(20).min(100);
     let has_more = products.len() as u64 >= limit;
@@ -50,10 +48,7 @@ async fn list(
 
 /// GET /api/v1/products/:pid - Busca produto detalhado (com variantes e preços)
 #[debug_handler]
-async fn get_one(
-    State(ctx): State<AppContext>,
-    Path(pid): Path<Uuid>,
-) -> Result<Response> {
+async fn get_one(State(ctx): State<AppContext>, Path(pid): Path<Uuid>) -> Result<Response> {
     let product = crate::models::products::Model::find_by_pid(&ctx.db, &pid).await?;
 
     // Carrega variantes com preços
@@ -151,19 +146,29 @@ async fn create_variant(
 
 /// GET /api/v1/products/export/csv - Exporta todos os produtos em CSV
 #[debug_handler]
-async fn export_csv(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
-    let products =
-        crate::models::products::Model::list_all_for_store(&ctx.db).await?;
+async fn export_csv(State(ctx): State<AppContext>) -> Result<Response> {
+    let products = crate::models::products::Model::list_all_for_store(&ctx.db).await?;
 
     let mut wtr = csv::Writer::from_writer(Vec::new());
     // Cabeçalho
     wtr.write_record(&[
-        "id", "pid", "title", "slug", "description", "handle",
-        "status", "product_type", "category_id", "tags",
-        "seo_title", "seo_description", "weight", "featured", "created_at",
-    ]).map_err(|e| Error::string(&e.to_string()))?;
+        "id",
+        "pid",
+        "title",
+        "slug",
+        "description",
+        "handle",
+        "status",
+        "product_type",
+        "category_id",
+        "tags",
+        "seo_title",
+        "seo_description",
+        "weight",
+        "featured",
+        "created_at",
+    ])
+    .map_err(|e| Error::string(&e.to_string()))?;
 
     for p in &products {
         wtr.write_record(&[
@@ -182,10 +187,13 @@ async fn export_csv(
             p.weight.map(|w| w.to_string()).unwrap_or_default(),
             p.featured.to_string(),
             p.created_at.to_rfc3339(),
-        ]).map_err(|e| Error::string(&e.to_string()))?;
+        ])
+        .map_err(|e| Error::string(&e.to_string()))?;
     }
 
-    let csv_bytes = wtr.into_inner().map_err(|e| Error::string(&e.to_string()))?;
+    let csv_bytes = wtr
+        .into_inner()
+        .map_err(|e| Error::string(&e.to_string()))?;
 
     Ok(axum::response::Response::builder()
         .status(200)
@@ -200,23 +208,41 @@ async fn export_csv(
 
 /// GET /api/v1/products/import/template - Gera CSV template para importação em lote
 #[debug_handler]
-async fn import_template(
-    State(_ctx): State<AppContext>,
-) -> Result<Response> {
+async fn import_template(State(_ctx): State<AppContext>) -> Result<Response> {
     let mut wtr = csv::Writer::from_writer(Vec::new());
     wtr.write_record(&[
-        "title", "slug", "description", "handle",
-        "product_type", "category_id", "tags",
-        "seo_title", "seo_description", "weight", "featured",
-    ]).map_err(|e| Error::string(&e.to_string()))?;
+        "title",
+        "slug",
+        "description",
+        "handle",
+        "product_type",
+        "category_id",
+        "tags",
+        "seo_title",
+        "seo_description",
+        "weight",
+        "featured",
+    ])
+    .map_err(|e| Error::string(&e.to_string()))?;
     // Linha de exemplo
     wtr.write_record(&[
-        "Meu Produto", "meu-produto", "Descrição do produto", "meu-produto",
-        "physical", "", "tag1,tag2",
-        "", "", "0.5", "false",
-    ]).map_err(|e| Error::string(&e.to_string()))?;
+        "Meu Produto",
+        "meu-produto",
+        "Descrição do produto",
+        "meu-produto",
+        "physical",
+        "",
+        "tag1,tag2",
+        "",
+        "",
+        "0.5",
+        "false",
+    ])
+    .map_err(|e| Error::string(&e.to_string()))?;
 
-    let csv_bytes = wtr.into_inner().map_err(|e| Error::string(&e.to_string()))?;
+    let csv_bytes = wtr
+        .into_inner()
+        .map_err(|e| Error::string(&e.to_string()))?;
 
     Ok(axum::response::Response::builder()
         .status(200)
@@ -241,21 +267,35 @@ async fn import_csv(
 
     // Lê o arquivo CSV do multipart
     let mut csv_bytes: Option<Vec<u8>> = None;
-    while let Some(field) = multipart.next_field().await.map_err(|e| Error::string(&e.to_string()))? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| Error::string(&e.to_string()))?
+    {
         let name = field.name().unwrap_or("").to_string();
         if name == "file" || name == "csv" {
-            csv_bytes = Some(field.bytes().await.map_err(|e| Error::string(&e.to_string()))?.to_vec());
+            csv_bytes = Some(
+                field
+                    .bytes()
+                    .await
+                    .map_err(|e| Error::string(&e.to_string()))?
+                    .to_vec(),
+            );
             break;
         }
     }
 
-    let csv_bytes = csv_bytes.ok_or_else(|| Error::string("Arquivo CSV não encontrado no multipart"))?;
+    let csv_bytes =
+        csv_bytes.ok_or_else(|| Error::string("Arquivo CSV não encontrado no multipart"))?;
 
     let mut rdr = csv::ReaderBuilder::new()
         .has_headers(true)
         .from_reader(Cursor::new(csv_bytes));
 
-    let headers = rdr.headers().map_err(|e| Error::string(&e.to_string()))?.clone();
+    let headers = rdr
+        .headers()
+        .map_err(|e| Error::string(&e.to_string()))?
+        .clone();
 
     let mut created_slugs: Vec<String> = Vec::new();
     let mut errors: Vec<String> = Vec::new();
@@ -270,7 +310,9 @@ async fn import_csv(
         };
 
         let get = |col: &str| -> String {
-            headers.iter().position(|h| h == col)
+            headers
+                .iter()
+                .position(|h| h == col)
                 .and_then(|idx| record.get(idx))
                 .unwrap_or("")
                 .to_string()
@@ -297,29 +339,53 @@ async fn import_csv(
             title: title.clone(),
             slug: {
                 let s = get("slug");
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             },
             description: {
                 let s = get("description");
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             },
             handle: {
                 let s = get("handle");
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             },
             product_type: {
                 let s = get("product_type");
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             },
             category_id,
             tags: if tags.is_empty() { None } else { Some(tags) },
             seo_title: {
                 let s = get("seo_title");
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             },
             seo_description: {
                 let s = get("seo_description");
-                if s.is_empty() { None } else { Some(s) }
+                if s.is_empty() {
+                    None
+                } else {
+                    Some(s)
+                }
             },
             weight,
             featured: Some(featured),
@@ -349,7 +415,10 @@ async fn import_csv(
             header::CONTENT_DISPOSITION,
             "attachment; filename=\"produtos_imagens.zip\"",
         )
-        .header("X-Import-Result", serde_json::to_string(&result).unwrap_or_default())
+        .header(
+            "X-Import-Result",
+            serde_json::to_string(&result).unwrap_or_default(),
+        )
         .body(axum::body::Body::from(zip_bytes))
         .map_err(|e| Error::string(&e.to_string()))?)
 }
@@ -366,46 +435,75 @@ async fn import_images(
 
     // Lê o arquivo ZIP do multipart
     let mut zip_bytes: Option<Vec<u8>> = None;
-    while let Some(field) = multipart.next_field().await.map_err(|e| Error::string(&e.to_string()))? {
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| Error::string(&e.to_string()))?
+    {
         let name = field.name().unwrap_or("").to_string();
         if name == "file" || name == "zip" {
-            zip_bytes = Some(field.bytes().await.map_err(|e| Error::string(&e.to_string()))?.to_vec());
+            zip_bytes = Some(
+                field
+                    .bytes()
+                    .await
+                    .map_err(|e| Error::string(&e.to_string()))?
+                    .to_vec(),
+            );
             break;
         }
     }
 
-    let zip_bytes = zip_bytes.ok_or_else(|| Error::string("Arquivo ZIP não encontrado no multipart"))?;
+    let zip_bytes =
+        zip_bytes.ok_or_else(|| Error::string("Arquivo ZIP não encontrado no multipart"))?;
 
-    let mut archive = zip::ZipArchive::new(Cursor::new(zip_bytes))
-        .map_err(|e| Error::string(&e.to_string()))?;
+    let mut archive =
+        zip::ZipArchive::new(Cursor::new(zip_bytes)).map_err(|e| Error::string(&e.to_string()))?;
 
     // Coleta todos os dados em memória ANTES dos awaits
     // (ZipFile não é Send, não pode cruzar pontos .await)
-    struct FileEntry { slug: String, filename: String, data: Vec<u8> }
+    struct FileEntry {
+        slug: String,
+        filename: String,
+        data: Vec<u8>,
+    }
     let mut entries: Vec<FileEntry> = Vec::new();
 
     for i in 0..archive.len() {
-        let mut file = archive.by_index(i).map_err(|e| Error::string(&e.to_string()))?;
+        let mut file = archive
+            .by_index(i)
+            .map_err(|e| Error::string(&e.to_string()))?;
         let file_path = file.mangled_name();
         let parts: Vec<&str> = file_path.to_str().unwrap_or("").split('/').collect();
-        if parts.len() < 2 || file.is_dir() { continue; }
-        let slug     = parts[0].to_string();
+        if parts.len() < 2 || file.is_dir() {
+            continue;
+        }
+        let slug = parts[0].to_string();
         let filename = parts[parts.len() - 1].to_string();
-        if filename.starts_with('.') || slug.starts_with('.') { continue; }
+        if filename.starts_with('.') || slug.starts_with('.') {
+            continue;
+        }
         let mut data = Vec::new();
         std::io::copy(&mut file, &mut data).map_err(|e| Error::string(&e.to_string()))?;
-        entries.push(FileEntry { slug, filename, data });
+        entries.push(FileEntry {
+            slug,
+            filename,
+            data,
+        });
     }
     drop(archive); // libera antes dos awaits
 
     let mut processed: Vec<serde_json::Value> = Vec::new();
 
     for entry in entries {
-        let FileEntry { slug, filename, data } = entry;
+        let FileEntry {
+            slug,
+            filename,
+            data,
+        } = entry;
 
         // Busca o produto pelo slug
-        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
         use crate::models::_entities::products;
+        use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
         let product = products::Entity::find()
             .filter(products::Column::Slug.eq(slug.as_str()))
             .filter(products::Column::DeletedAt.is_null())
@@ -461,7 +559,8 @@ fn build_slugs_zip(slugs: &[String]) -> std::io::Result<Vec<u8>> {
     for slug in slugs {
         // Cria uma pasta para o slug com um arquivo README
         let entry_name = format!("{}/COLOQUE_IMAGENS_AQUI.txt", slug);
-        zip.start_file(entry_name, options).map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        zip.start_file(entry_name, options)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         let readme = format!(
             "Coloque as imagens do produto '{}' nesta pasta.\nFormatos suportados: jpg, jpeg, png, webp, gif\n",
             slug
@@ -469,23 +568,20 @@ fn build_slugs_zip(slugs: &[String]) -> std::io::Result<Vec<u8>> {
         zip.write_all(readme.as_bytes())?;
     }
 
-    let cursor = zip.finish().map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let cursor = zip
+        .finish()
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     Ok(cursor.into_inner())
 }
 
 /// GET /api/admin/products - Lista todos produtos (admin)
 #[debug_handler]
-async fn admin_list(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+async fn admin_list(State(ctx): State<AppContext>) -> Result<Response> {
     use crate::models::_entities::products;
     use sea_orm::EntityTrait;
-    
-    let products = products::Entity::find()
-        .all(&ctx.db)
-        .await?;
-    let response: Vec<ProductResponse> =
-        products.into_iter().map(ProductResponse::from).collect();
+
+    let products = products::Entity::find().all(&ctx.db).await?;
+    let response: Vec<ProductResponse> = products.into_iter().map(ProductResponse::from).collect();
     format::json(ApiResponse::success(response))
 }
 

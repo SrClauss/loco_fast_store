@@ -31,7 +31,9 @@ impl BackgroundWorker<LeadScoringWorkerArgs> for LeadScoringWorker {
         let score = analytics
             .calculate_lead_score(&args.session_id)
             .await
-            .map_err(|e| loco_rs::Error::Message(format!("Failed to calculate lead score: {}", e)))?;
+            .map_err(|e| {
+                loco_rs::Error::Message(format!("Failed to calculate lead score: {}", e))
+            })?;
 
         tracing::info!(
             session_id = &args.session_id,

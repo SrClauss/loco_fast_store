@@ -5,10 +5,7 @@ use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::{
-    dto::{
-        entities::CategoryResponse,
-        response::ApiResponse,
-    },
+    dto::{entities::CategoryResponse, response::ApiResponse},
     models::{
         _entities::users,
         categories::{CreateCategoryParams, UpdateCategoryParams},
@@ -28,8 +25,7 @@ async fn create(
     Json(params): Json<CreateCategoryParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let category =
-        crate::models::categories::Model::create_category(&ctx.db, &params).await?;
+    let category = crate::models::categories::Model::create_category(&ctx.db, &params).await?;
     format::json(ApiResponse::success(CategoryResponse::from(category)))
 }
 
@@ -40,8 +36,7 @@ async fn list(
     Query(query): Query<CategoryQuery>,
 ) -> Result<Response> {
     let categories =
-        crate::models::categories::Model::list_for_store(&ctx.db, query.parent_id)
-            .await?;
+        crate::models::categories::Model::list_for_store(&ctx.db, query.parent_id).await?;
     let response: Vec<CategoryResponse> =
         categories.into_iter().map(CategoryResponse::from).collect();
     format::json(ApiResponse::success(response))
@@ -49,10 +44,7 @@ async fn list(
 
 /// GET /api/v1/categories/:pid
 #[debug_handler]
-async fn get_one(
-    State(ctx): State<AppContext>,
-    Path(pid): Path<Uuid>,
-) -> Result<Response> {
+async fn get_one(State(ctx): State<AppContext>, Path(pid): Path<Uuid>) -> Result<Response> {
     let category = crate::models::categories::Model::find_by_pid(&ctx.db, &pid).await?;
     format::json(ApiResponse::success(CategoryResponse::from(category)))
 }
@@ -109,9 +101,7 @@ async fn remove(
 
 /// GET /api/admin/categories - Lista todas categorias (admin)
 #[debug_handler]
-async fn admin_list(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+async fn admin_list(State(ctx): State<AppContext>) -> Result<Response> {
     let categories = crate::models::_entities::categories::Entity::find()
         .all(&ctx.db)
         .await?;

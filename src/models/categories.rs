@@ -86,8 +86,7 @@ impl Model {
         db: &DatabaseConnection,
         parent_id: Option<i32>,
     ) -> ModelResult<Vec<Self>> {
-        let mut query = Entity::find()
-            .filter(categories::Column::DeletedAt.is_null());
+        let mut query = Entity::find().filter(categories::Column::DeletedAt.is_null());
 
         if let Some(pid) = parent_id {
             query = query.filter(categories::Column::ParentId.eq(pid));
@@ -103,7 +102,10 @@ impl Model {
     }
 
     /// Lista filhas de uma categoria
-    pub async fn find_children(db: &DatabaseConnection, category_id: i32) -> ModelResult<Vec<Self>> {
+    pub async fn find_children(
+        db: &DatabaseConnection,
+        category_id: i32,
+    ) -> ModelResult<Vec<Self>> {
         let children = Entity::find()
             .filter(categories::Column::ParentId.eq(category_id))
             .filter(categories::Column::DeletedAt.is_null())
@@ -114,10 +116,7 @@ impl Model {
     }
 
     /// Busca por slug
-    pub async fn find_by_slug(
-        db: &DatabaseConnection,
-        slug: &str,
-    ) -> ModelResult<Self> {
+    pub async fn find_by_slug(db: &DatabaseConnection, slug: &str) -> ModelResult<Self> {
         let category = Entity::find()
             .filter(categories::Column::Slug.eq(slug))
             .filter(categories::Column::DeletedAt.is_null())

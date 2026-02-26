@@ -1,12 +1,12 @@
 use axum::extract::Query;
 use loco_rs::prelude::*;
-use sea_orm::{EntityTrait, QueryFilter, ColumnTrait, PaginatorTrait};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::{
     dto::{
-        entities::{OrderResponse, OrderItemResponse},
+        entities::{OrderItemResponse, OrderResponse},
         response::ApiResponse,
     },
     models::{
@@ -48,11 +48,13 @@ async fn create(
     let cart_items = CartModel::get_items(&ctx.db, cart.id).await?;
 
     if cart_items.is_empty() {
-        return format::json(ApiResponse::<()>::error("EMPTY_CART", "Carrinho está vazio"));
+        return format::json(ApiResponse::<()>::error(
+            "EMPTY_CART",
+            "Carrinho está vazio",
+        ));
     }
 
-    let order =
-        OrderModel::create_from_cart(&ctx.db, &cart, &cart_items, &params).await?;
+    let order = OrderModel::create_from_cart(&ctx.db, &cart, &cart_items, &params).await?;
 
     // Marca carrinho como completed
     CartModel::complete(&ctx.db, cart.id).await?;
@@ -76,13 +78,8 @@ async fn list(
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
 
     let limit = query.limit.unwrap_or(20);
-    let orders = OrderModel::list_for_store(
-        &ctx.db,
-        query.status.as_deref(),
-        query.cursor,
-        limit,
-    )
-    .await?;
+    let orders =
+        OrderModel::list_for_store(&ctx.db, query.status.as_deref(), query.cursor, limit).await?;
 
     let has_more = orders.len() as u64 >= limit.min(100);
     let cursor = orders.last().map(|o| o.id.to_string());
@@ -94,10 +91,7 @@ async fn list(
 
 /// GET /api/v1/orders/:pid - Detalhes do pedido
 #[debug_handler]
-async fn get_one(
-    State(ctx): State<AppContext>,
-    Path(pid): Path<Uuid>,
-) -> Result<Response> {
+async fn get_one(State(ctx): State<AppContext>, Path(pid): Path<Uuid>) -> Result<Response> {
     let order = OrderModel::find_by_pid(&ctx.db, &pid).await?;
     let items = OrderModel::get_items(&ctx.db, order.id).await?;
     let item_responses: Vec<OrderItemResponse> =
@@ -133,8 +127,7 @@ async fn update_status(
     }
     if let Some(fulfillment_status) = params.fulfillment_status {
         updated =
-            OrderModel::update_fulfillment_status(&ctx.db, updated.id, &fulfillment_status)
-                .await?;
+            OrderModel::update_fulfillment_status(&ctx.db, updated.id, &fulfillment_status).await?;
     }
 
     format::json(ApiResponse::success(OrderResponse::from(updated)))
@@ -154,11 +147,9 @@ pub struct OrderStats {
 
 /// GET /api/admin/orders/stats
 #[debug_handler]
-async fn admin_stats(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+async fn admin_stats(State(ctx): State<AppContext>) -> Result<Response> {
     use crate::models::_entities::orders;
-    
+
     let total = orders::Entity::find().count(&ctx.db).await?;
     let pending = orders::Entity::find()
         .filter(orders::Column::Status.eq("pending"))
@@ -184,7 +175,7 @@ async fn admin_stats(
         .filter(orders::Column::Status.eq("cancelled"))
         .count(&ctx.db)
         .await?;
-    
+
     let stats = OrderStats {
         total,
         pending,
@@ -194,22 +185,17 @@ async fn admin_stats(
         delivered,
         cancelled,
     };
-    
+
     format::json(stats)
 }
 
 /// GET /api/admin/orders
 #[debug_handler]
-async fn admin_list(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+async fn admin_list(State(ctx): State<AppContext>) -> Result<Response> {
     use crate::models::_entities::orders;
-    
-    let orders_list = orders::Entity::find()
-        .all(&ctx.db)
-        .await?;
-    let response: Vec<OrderResponse> =
-        orders_list.into_iter().map(OrderResponse::from).collect();
+
+    let orders_list = orders::Entity::find().all(&ctx.db).await?;
+    let response: Vec<OrderResponse> = orders_list.into_iter().map(OrderResponse::from).collect();
     format::json(ApiResponse::success(response))
 }
 

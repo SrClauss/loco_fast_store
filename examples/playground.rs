@@ -1,6 +1,5 @@
 use loco_fast_store::app::App;
-#[allow(unused_imports)]
-use loco_rs::{cli::playground, prelude::*};
+use loco_rs::prelude::*;
 
 #[tokio::main]
 async fn main() -> loco_rs::Result<()> {

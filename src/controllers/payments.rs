@@ -29,8 +29,8 @@ async fn create_payment(
     Path(order_pid): Path<Uuid>,
     Json(params): Json<CreateAsaasPaymentParams>,
 ) -> Result<Response> {
-    let _user = crate::models::_entities::users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
-        .await?;
+    let _user =
+        crate::models::_entities::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
     let order = OrderModel::find_by_pid(&ctx.db, &order_pid).await?;
 
     let customer = customers::Entity::find_by_id(order.customer_id)
@@ -49,7 +49,9 @@ async fn create_payment(
     {
         existing
     } else {
-        let full_name = format!("{} {}", customer.first_name, customer.last_name).trim().to_string();
+        let full_name = format!("{} {}", customer.first_name, customer.last_name)
+            .trim()
+            .to_string();
         let created = client
             .create_customer(
                 &full_name,
@@ -66,11 +68,7 @@ async fn create_payment(
         created.id
     };
 
-    let billing_type = params
-        .billing_type
-        .as_deref()
-        .unwrap_or("PIX")
-        .to_string();
+    let billing_type = params.billing_type.as_deref().unwrap_or("PIX").to_string();
     let description = params
         .description
         .as_deref()
@@ -100,8 +98,8 @@ async fn create_payment(
         "checkout_url": payment.checkoutUrl,
     });
 
-    let updated = OrderModel::update_payment_status(&ctx.db, order.id, &status, Some(payment_data))
-        .await?;
+    let updated =
+        OrderModel::update_payment_status(&ctx.db, order.id, &status, Some(payment_data)).await?;
 
     format::json(ApiResponse::success(serde_json::json!({
         "order_pid": updated.pid,
@@ -120,15 +118,24 @@ async fn webhook(
     Json(payload): Json<AsaasWebhookPayload>,
 ) -> Result<Response> {
     let Some(payment) = payload.payment else {
-        return format::json(ApiResponse::<()>::error("NO_PAYMENT", "Payload sem payment"));
+        return format::json(ApiResponse::<()>::error(
+            "NO_PAYMENT",
+            "Payload sem payment",
+        ));
     };
 
     let Some(external_reference) = payment.externalReference.clone() else {
-        return format::json(ApiResponse::<()>::error("NO_REFERENCE", "Sem externalReference"));
+        return format::json(ApiResponse::<()>::error(
+            "NO_REFERENCE",
+            "Sem externalReference",
+        ));
     };
 
     let Ok(order_pid) = Uuid::parse_str(&external_reference) else {
-        return format::json(ApiResponse::<()>::error("BAD_REFERENCE", "externalReference inválido"));
+        return format::json(ApiResponse::<()>::error(
+            "BAD_REFERENCE",
+            "externalReference inválido",
+        ));
     };
 
     let order = OrderModel::find_by_pid(&ctx.db, &order_pid).await?;
@@ -141,8 +148,8 @@ async fn webhook(
         "payment": payment,
     });
 
-    let updated = OrderModel::update_payment_status(&ctx.db, order.id, &status, Some(payment_data))
-        .await?;
+    let updated =
+        OrderModel::update_payment_status(&ctx.db, order.id, &status, Some(payment_data)).await?;
 
     if status == "paid" {
         if let Some(cart_id) = updated.cart_id {
@@ -188,7 +195,10 @@ async fn list_asaas_webhooks(State(_ctx): State<AppContext>) -> Result<Response>
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api")
-        .add("/v1/orders/{order_pid}/payments/asaas", post(create_payment))
+        .add(
+            "/v1/orders/{order_pid}/payments/asaas",
+            post(create_payment),
+        )
         .add("/payments/asaas/webhook", post(webhook))
         .add("/payments/asaas/webhooks", get(list_asaas_webhooks))
 }

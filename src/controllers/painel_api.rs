@@ -8,7 +8,9 @@ use crate::{
     dto::response::ApiResponse,
     models::{
         _entities::users,
-        order_shippings::{CreateShippingParams, Model as ShippingModel, UpdateShippingStatusParams},
+        order_shippings::{
+            CreateShippingParams, Model as ShippingModel, UpdateShippingStatusParams,
+        },
         orders::Model as OrderModel,
         store_collaborators::Model as CollaboratorModel,
     },
@@ -50,17 +52,24 @@ async fn require_collab(
     db: &DatabaseConnection,
     user_pid: &str,
     need_update: bool,
-) -> Result<(users::Model, crate::models::_entities::store_collaborators::Model)> {
+) -> Result<(
+    users::Model,
+    crate::models::_entities::store_collaborators::Model,
+)> {
     let user = users::Model::find_by_pid(db, user_pid).await?;
     let collab = CollaboratorModel::find_for_user(db, user.id)
         .await
         .map_err(|_| loco_rs::Error::Unauthorized("Sem acesso ao painel".into()))?;
 
     if need_update && !collab.can_update_orders() {
-        return Err(loco_rs::Error::Unauthorized("Permissão insuficiente".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Permissão insuficiente".into(),
+        ));
     }
     if !need_update && !collab.can_view_orders() {
-        return Err(loco_rs::Error::Unauthorized("Permissão insuficiente".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Permissão insuficiente".into(),
+        ));
     }
 
     Ok((user, collab))
@@ -112,9 +121,8 @@ pub async fn list_orders(
         db_query = db_query.filter(crate::models::_entities::orders::Column::Status.eq(s.as_str()));
     }
     if let Some(ref fs) = query.fulfillment_status {
-        db_query = db_query.filter(
-            crate::models::_entities::orders::Column::FulfillmentStatus.eq(fs.as_str()),
-        );
+        db_query = db_query
+            .filter(crate::models::_entities::orders::Column::FulfillmentStatus.eq(fs.as_str()));
     }
     if let Some(cursor) = query.cursor {
         db_query = db_query.filter(crate::models::_entities::orders::Column::Id.gt(cursor));
@@ -155,7 +163,12 @@ pub async fn list_orders(
 
     let has_more = orders.len() as u64 >= limit;
     let cursor = orders.last().map(|o| o.id.to_string());
-    format::json(ApiResponse::paginated(result, cursor, has_more, orders.len()))
+    format::json(ApiResponse::paginated(
+        result,
+        cursor,
+        has_more,
+        orders.len(),
+    ))
 }
 
 /// GET /api/painel/pedidos/:order_pid
@@ -276,19 +289,15 @@ pub async fn create_shipping(
     let (_, _) = require_collab(&ctx.db, &auth.claims.pid, true).await?;
     let order = OrderModel::find_by_pid(&ctx.db, &order_pid).await?;
 
-    let (provider_name, provider_data) = if let Some(_provider) = shipping::provider_for(&params.carrier) {
-        (Some(params.carrier.as_str()), None)
-    } else {
-        (None, None)
-    };
+    let (provider_name, provider_data) =
+        if let Some(_provider) = shipping::provider_for(&params.carrier) {
+            (Some(params.carrier.as_str()), None)
+        } else {
+            (None, None)
+        };
 
-    let shipping = ShippingModel::create(
-        &ctx.db,
-        order.id,
-        &params,
-        provider_name,
-        provider_data,
-    ).await?;
+    let shipping =
+        ShippingModel::create(&ctx.db, order.id, &params, provider_name, provider_data).await?;
 
     // Atualiza fulfillment_status do pedido para 'fulfilled'
     OrderModel::update_fulfillment_status(&ctx.db, order.id, "fulfilled").await?;
@@ -359,7 +368,9 @@ pub async fn calculate_freight(
     };
 
     match provider.calculate_freight(freight_params).await {
-        Ok(options) => format::json(ApiResponse::success(serde_json::json!({ "options": options }))),
+        Ok(options) => format::json(ApiResponse::success(
+            serde_json::json!({ "options": options }),
+        )),
         Err(e) => format::json(ApiResponse::<()>::error("FREIGHT_ERROR", &e.to_string())),
     }
 }
@@ -374,30 +385,32 @@ pub async fn list_shippings(
     let (_, _) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     let limit = query.limit.unwrap_or(20).min(100);
-    let shippings = ShippingModel::list_for_store(
-        &ctx.db,
-        query.status.as_deref(),
-        query.cursor,
-        limit,
-    ).await?;
+    let shippings =
+        ShippingModel::list_for_store(&ctx.db, query.status.as_deref(), query.cursor, limit)
+            .await?;
 
     let has_more = shippings.len() as u64 >= limit;
     let cursor = shippings.last().map(|s| s.id.to_string());
     let count = shippings.len();
 
-    let data: Vec<serde_json::Value> = shippings.into_iter().map(|s| serde_json::json!({
-        "pid": s.pid.to_string(),
-        "order_id": s.order_id,
-        "carrier": s.carrier,
-        "service": s.service,
-        "tracking_code": s.tracking_code,
-        "tracking_url": s.tracking_url,
-        "status": s.status,
-        "shipped_at": s.shipped_at.map(|t| t.to_string()),
-        "estimated_delivery_at": s.estimated_delivery_at.map(|t| t.to_string()),
-        "delivered_at": s.delivered_at.map(|t| t.to_string()),
-        "notes": s.notes,
-    })).collect();
+    let data: Vec<serde_json::Value> = shippings
+        .into_iter()
+        .map(|s| {
+            serde_json::json!({
+                "pid": s.pid.to_string(),
+                "order_id": s.order_id,
+                "carrier": s.carrier,
+                "service": s.service,
+                "tracking_code": s.tracking_code,
+                "tracking_url": s.tracking_url,
+                "status": s.status,
+                "shipped_at": s.shipped_at.map(|t| t.to_string()),
+                "estimated_delivery_at": s.estimated_delivery_at.map(|t| t.to_string()),
+                "delivered_at": s.delivered_at.map(|t| t.to_string()),
+                "notes": s.notes,
+            })
+        })
+        .collect();
 
     format::json(ApiResponse::paginated(data, cursor, has_more, count))
 }
@@ -413,7 +426,9 @@ pub async fn list_collaborators(
     let (_, collab) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     if !collab.can_manage_collaborators() {
-        return Err(loco_rs::Error::Unauthorized("Apenas owner/admin podem gerenciar colaboradores".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Apenas owner/admin podem gerenciar colaboradores".into(),
+        ));
     }
 
     let collabs = CollaboratorModel::list_for_store(&ctx.db).await?;
@@ -430,7 +445,9 @@ pub async fn add_collaborator(
     let (_, collab) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     if !collab.can_manage_collaborators() {
-        return Err(loco_rs::Error::Unauthorized("Apenas owner/admin podem adicionar colaboradores".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Apenas owner/admin podem adicionar colaboradores".into(),
+        ));
     }
 
     let new_collab = CollaboratorModel::add_collaborator(&ctx.db, &params).await?;
@@ -447,7 +464,9 @@ pub async fn remove_collaborator(
     let (_, collab) = require_collab(&ctx.db, &auth.claims.pid, false).await?;
 
     if !collab.can_manage_collaborators() {
-        return Err(loco_rs::Error::Unauthorized("Apenas owner/admin podem remover colaboradores".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Apenas owner/admin podem remover colaboradores".into(),
+        ));
     }
 
     CollaboratorModel::deactivate(&ctx.db, user_id).await?;
@@ -463,14 +482,29 @@ pub fn routes() -> Routes {
         // Pedidos
         .add("/api/painel/pedidos", get(list_orders))
         .add("/api/painel/pedidos/{order_pid}", get(get_order))
-        .add("/api/painel/pedidos/{order_pid}/status", put(update_order_status))
-        .add("/api/painel/pedidos/{order_pid}/envio", post(create_shipping))
-        .add("/api/painel/pedidos/{order_pid}/frete", post(calculate_freight))
+        .add(
+            "/api/painel/pedidos/{order_pid}/status",
+            put(update_order_status),
+        )
+        .add(
+            "/api/painel/pedidos/{order_pid}/envio",
+            post(create_shipping),
+        )
+        .add(
+            "/api/painel/pedidos/{order_pid}/frete",
+            post(calculate_freight),
+        )
         // Envios
         .add("/api/painel/envios", get(list_shippings))
-        .add("/api/painel/envios/{shipping_pid}/status", put(update_shipping_status))
+        .add(
+            "/api/painel/envios/{shipping_pid}/status",
+            put(update_shipping_status),
+        )
         // Colaboradores
         .add("/api/painel/colaboradores", get(list_collaborators))
         .add("/api/painel/colaboradores", post(add_collaborator))
-        .add("/api/painel/colaboradores/{user_id}", delete(remove_collaborator))
+        .add(
+            "/api/painel/colaboradores/{user_id}",
+            delete(remove_collaborator),
+        )
 }

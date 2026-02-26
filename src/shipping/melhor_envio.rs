@@ -25,12 +25,12 @@
 use async_trait::async_trait;
 
 use super::{
-    CreateShipmentParams, FreightOption, FreightParams, ShipmentResult,
-    ShippingError, ShippingProvider, TrackingInfo,
+    CreateShipmentParams, FreightOption, FreightParams, ShipmentResult, ShippingError,
+    ShippingProvider, TrackingInfo,
 };
 
 const SANDBOX_BASE: &str = "https://sandbox.melhorenvio.com.br/api/v2";
-const PROD_BASE: &str    = "https://melhorenvio.com.br/api/v2";
+const PROD_BASE: &str = "https://melhorenvio.com.br/api/v2";
 
 pub struct MelhorEnvio {
     token: String,
@@ -70,7 +70,9 @@ impl MelhorEnvio {
 
 #[async_trait]
 impl ShippingProvider for MelhorEnvio {
-    fn name(&self) -> &'static str { "melhor_envio" }
+    fn name(&self) -> &'static str {
+        "melhor_envio"
+    }
 
     /// Calcula fretes disponíveis.
     ///
@@ -130,7 +132,9 @@ impl ShippingProvider for MelhorEnvio {
             .iter()
             .filter_map(|item| {
                 // Ignora serviços com erro (ex.: pacote fora do limite)
-                if item.get("error").is_some() { return None; }
+                if item.get("error").is_some() {
+                    return None;
+                }
                 Some(FreightOption {
                     carrier: item["company"]["name"].as_str().unwrap_or("").to_string(),
                     service: item["name"].as_str().unwrap_or("").to_string(),
@@ -162,7 +166,8 @@ impl ShippingProvider for MelhorEnvio {
         // ────────────────────────────────────────────────────────────────────
         Err(ShippingError::NotConfigured(
             "create_shipment do MelhorEnvio ainda não implementado. \
-             Siga os comentários em src/shipping/melhor_envio.rs".into(),
+             Siga os comentários em src/shipping/melhor_envio.rs"
+                .into(),
         ))
     }
 
@@ -174,7 +179,8 @@ impl ShippingProvider for MelhorEnvio {
     async fn track(&self, _tracking_code: &str) -> Result<TrackingInfo, ShippingError> {
         Err(ShippingError::NotConfigured(
             "track do MelhorEnvio ainda não implementado. \
-             Siga os comentários em src/shipping/melhor_envio.rs".into(),
+             Siga os comentários em src/shipping/melhor_envio.rs"
+                .into(),
         ))
     }
 }

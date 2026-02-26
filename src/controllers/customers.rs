@@ -6,12 +6,12 @@ use uuid::Uuid;
 
 use crate::{
     dto::{
-        entities::{CustomerResponse, AddressResponse},
+        entities::{AddressResponse, CustomerResponse},
         response::ApiResponse,
     },
     models::{
         _entities::users,
-        customers::{CreateCustomerParams, UpdateCustomerParams, CreateAddressParams},
+        customers::{CreateAddressParams, CreateCustomerParams, UpdateCustomerParams},
     },
 };
 
@@ -30,8 +30,7 @@ async fn create(
     Json(params): Json<CreateCustomerParams>,
 ) -> Result<Response> {
     let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
-    let customer =
-        crate::models::customers::Model::create_customer(&ctx.db, &params).await?;
+    let customer = crate::models::customers::Model::create_customer(&ctx.db, &params).await?;
     format::json(ApiResponse::success(CustomerResponse::from(customer)))
 }
 
@@ -46,18 +45,13 @@ async fn list(
 
     // Se buscar por email diretamente
     if let Some(email) = query.email {
-        let customer =
-            crate::models::customers::Model::find_by_email(&ctx.db, &email).await?;
+        let customer = crate::models::customers::Model::find_by_email(&ctx.db, &email).await?;
         return format::json(ApiResponse::success(vec![CustomerResponse::from(customer)]));
     }
 
     let limit = query.limit.unwrap_or(20);
-    let customers = crate::models::customers::Model::list_for_store(
-        &ctx.db,
-        query.cursor,
-        limit,
-    )
-    .await?;
+    let customers =
+        crate::models::customers::Model::list_for_store(&ctx.db, query.cursor, limit).await?;
 
     let has_more = customers.len() as u64 >= limit.min(100);
     let cursor = customers.last().map(|c| c.id.to_string());
@@ -70,10 +64,7 @@ async fn list(
 
 /// GET /api/v1/customers/:pid
 #[debug_handler]
-async fn get_one(
-    State(ctx): State<AppContext>,
-    Path(pid): Path<Uuid>,
-) -> Result<Response> {
+async fn get_one(State(ctx): State<AppContext>, Path(pid): Path<Uuid>) -> Result<Response> {
     let customer = crate::models::customers::Model::find_by_pid(&ctx.db, &pid).await?;
     format::json(ApiResponse::success(CustomerResponse::from(customer)))
 }
@@ -125,15 +116,10 @@ async fn add_address(
 
 /// GET /api/v1/customers/:pid/addresses
 #[debug_handler]
-async fn list_addresses(
-    State(ctx): State<AppContext>,
-    Path(pid): Path<Uuid>,
-) -> Result<Response> {
+async fn list_addresses(State(ctx): State<AppContext>, Path(pid): Path<Uuid>) -> Result<Response> {
     let customer = crate::models::customers::Model::find_by_pid(&ctx.db, &pid).await?;
-    let addresses =
-        crate::models::customers::Model::get_addresses(&ctx.db, customer.id).await?;
-    let response: Vec<AddressResponse> =
-        addresses.into_iter().map(AddressResponse::from).collect();
+    let addresses = crate::models::customers::Model::get_addresses(&ctx.db, customer.id).await?;
+    let response: Vec<AddressResponse> = addresses.into_iter().map(AddressResponse::from).collect();
     format::json(ApiResponse::success(response))
 }
 
@@ -147,36 +133,32 @@ pub struct CustomerStats {
 
 /// GET /api/admin/customers/stats
 #[debug_handler]
-async fn admin_stats(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+async fn admin_stats(State(ctx): State<AppContext>) -> Result<Response> {
     use crate::models::_entities::customers;
-    
+
     let total = customers::Entity::find().count(&ctx.db).await?;
     let active = total; // Simplificado por enquanto
     let with_orders = 0; // TODO: implementar query de customers com pedidos
-    
+
     let stats = CustomerStats {
         total,
         active,
         with_orders,
     };
-    
+
     format::json(stats)
 }
 
 /// GET /api/admin/customers
 #[debug_handler]
-async fn admin_list(
-    State(ctx): State<AppContext>,
-) -> Result<Response> {
+async fn admin_list(State(ctx): State<AppContext>) -> Result<Response> {
     use crate::models::_entities::customers;
-    
-    let customers_list = customers::Entity::find()
-        .all(&ctx.db)
-        .await?;
-    let response: Vec<CustomerResponse> =
-        customers_list.into_iter().map(CustomerResponse::from).collect();
+
+    let customers_list = customers::Entity::find().all(&ctx.db).await?;
+    let response: Vec<CustomerResponse> = customers_list
+        .into_iter()
+        .map(CustomerResponse::from)
+        .collect();
     format::json(ApiResponse::success(response))
 }
 

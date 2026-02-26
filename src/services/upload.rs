@@ -31,8 +31,7 @@ impl Default for UploadConfig {
                 .unwrap_or_else(|_| "minioadmin".to_string()),
             secret_key: std::env::var("MINIO_SECRET_KEY")
                 .unwrap_or_else(|_| "minioadmin".to_string()),
-            region: std::env::var("MINIO_REGION")
-                .unwrap_or_else(|_| "us-east-1".to_string()),
+            region: std::env::var("MINIO_REGION").unwrap_or_else(|_| "us-east-1".to_string()),
             public_url: std::env::var("MINIO_PUBLIC_URL")
                 .unwrap_or_else(|_| "http://localhost:9000/loco-fast-store".to_string()),
         }
@@ -60,8 +59,7 @@ impl UploadService {
             None,
         )?;
 
-        let bucket = Bucket::new(&config.bucket_name, region, credentials)?
-            .with_path_style();
+        let bucket = Bucket::new(&config.bucket_name, region, credentials)?.with_path_style();
 
         Ok(Self {
             bucket,
@@ -75,7 +73,10 @@ impl UploadService {
         key: &str,
         expiry_secs: u32,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        let url = self.bucket.presign_put(key, expiry_secs, None, None).await?;
+        let url = self
+            .bucket
+            .presign_put(key, expiry_secs, None, None)
+            .await?;
         Ok(url)
     }
 
@@ -96,7 +97,9 @@ impl UploadService {
         content: &[u8],
         content_type: &str,
     ) -> Result<String, Box<dyn std::error::Error>> {
-        self.bucket.put_object_with_content_type(key, content, content_type).await?;
+        self.bucket
+            .put_object_with_content_type(key, content, content_type)
+            .await?;
         Ok(format!("{}/{}", self.public_url, key))
     }
 

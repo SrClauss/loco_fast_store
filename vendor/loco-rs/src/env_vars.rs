@@ -24,7 +24,6 @@ pub fn get(key: &str) -> Result<String, std::env::VarError> {
     std::env::var(key)
 }
 
-#[allow(dead_code)]
 /// Retrieves the value of the given environment variable, or returns a default value if the variable is not set.
 pub fn get_or_default(key: &str, default: &str) -> String {
     get(key).unwrap_or_else(|_| default.to_string())

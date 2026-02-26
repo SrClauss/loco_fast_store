@@ -2,8 +2,8 @@ use sea_orm::{PaginatorTrait, QueryOrder, QuerySelect};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub use super::_entities::orders::{self, ActiveModel, Entity, Model};
 pub use super::_entities::order_items;
+pub use super::_entities::orders::{self, ActiveModel, Entity, Model};
 
 use loco_rs::prelude::*;
 
@@ -33,9 +33,7 @@ impl Model {
         params: &CreateOrderFromCartParams,
     ) -> ModelResult<Self> {
         // Conta pedidos existentes para gerar número
-        let count = Entity::find()
-            .count(db)
-            .await?;
+        let count = Entity::find().count(db).await?;
 
         let order_number = generate_order_number(count as i64 + 1);
 
@@ -93,10 +91,7 @@ impl Model {
     }
 
     /// Busca pelo order_number
-    pub async fn find_by_number(
-        db: &DatabaseConnection,
-        order_number: &str,
-    ) -> ModelResult<Self> {
+    pub async fn find_by_number(db: &DatabaseConnection, order_number: &str) -> ModelResult<Self> {
         let order = Entity::find()
             .filter(orders::Column::OrderNumber.eq(order_number))
             .one(db)
@@ -136,8 +131,7 @@ impl Model {
         cursor: Option<i32>,
         limit: u64,
     ) -> ModelResult<Vec<Self>> {
-        let mut query = Entity::find()
-            .filter(orders::Column::CustomerId.eq(customer_id));
+        let mut query = Entity::find().filter(orders::Column::CustomerId.eq(customer_id));
 
         if let Some(cursor_id) = cursor {
             query = query.filter(orders::Column::Id.gt(cursor_id));

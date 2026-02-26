@@ -260,9 +260,7 @@ async fn resend_verification_email(
 
 /// Renders admin pages related to authentication
 #[debug_handler]
-pub async fn login_page(
-    ViewEngine(v): ViewEngine<TeraView>,
-) -> Result<Response> {
+pub async fn login_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
     format::render().view(&v, "admin/login.html", serde_json::json!({}))
 }
 

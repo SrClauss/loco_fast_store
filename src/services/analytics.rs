@@ -1,4 +1,8 @@
-#![allow(clippy::uninlined_format_args, clippy::missing_errors_doc, clippy::doc_markdown)]
+#![allow(
+    clippy::uninlined_format_args,
+    clippy::missing_errors_doc,
+    clippy::doc_markdown
+)]
 
 //! Serviço de analytics: Moka (cache quente, in-memory) → Sled (persistência)
 //!
@@ -12,13 +16,9 @@
 //! - checkout_complete: finalizou compra
 //! - search: busca de produto
 
-
 use moka::future::Cache;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,9 +50,7 @@ impl AnalyticsService {
         Ok(Self {
             event_stream: Arc::new(Mutex::new(Vec::new())),
             counters: Arc::new(Mutex::new(HashMap::new())),
-            sets: Cache::builder()
-                .max_capacity(10_000)
-                .build(),
+            sets: Cache::builder().max_capacity(10_000).build(),
             sled_db,
         })
     }
@@ -67,9 +65,12 @@ impl AnalyticsService {
     /// Adiciona membro a um set in-memory (operação atômica via moka get_with)
     async fn sadd(&self, key: &str, member: &str) {
         let key_owned = key.to_string();
-        let set = self.sets.get_with(key_owned, async {
-            Arc::new(Mutex::new(std::collections::HashSet::new()))
-        }).await;
+        let set = self
+            .sets
+            .get_with(key_owned, async {
+                Arc::new(Mutex::new(std::collections::HashSet::new()))
+            })
+            .await;
         set.lock().await.insert(member.to_string());
     }
 
@@ -92,7 +93,10 @@ impl AnalyticsService {
     }
 
     /// Registra evento de analytics no cache in-memory
-    pub async fn track_event(&self, event: &AnalyticsEvent) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn track_event(
+        &self,
+        event: &AnalyticsEvent,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let event_json = serde_json::to_string(event)?;
         self.event_stream.lock().await.push(event_json);
 
@@ -104,7 +108,8 @@ impl AnalyticsService {
 
         if event.event_type == "product_revisit" {
             if let Some(ref entity_id) = event.entity_id {
-                self.track_product_revisit(entity_id, &event.session_id).await;
+                self.track_product_revisit(entity_id, &event.session_id)
+                    .await;
             }
         }
 
@@ -113,15 +118,29 @@ impl AnalyticsService {
 
     /// Incrementa view de produto e rastreia sessão
     async fn track_product_view(&self, product_id: &str, session_id: &str) {
-        self.incr(&format!("analytics:product:{}:views", product_id)).await;
-        self.sadd(&format!("analytics:session:{}:products", session_id), product_id).await;
-        self.sadd(&format!("analytics:product:{}:visitors", product_id), session_id).await;
+        self.incr(&format!("analytics:product:{}:views", product_id))
+            .await;
+        self.sadd(
+            &format!("analytics:session:{}:products", session_id),
+            product_id,
+        )
+        .await;
+        self.sadd(
+            &format!("analytics:product:{}:visitors", product_id),
+            session_id,
+        )
+        .await;
     }
 
     /// Rastreia revisita (namoro) - session já visitou este produto antes
     async fn track_product_revisit(&self, product_id: &str, session_id: &str) {
-        self.incr(&format!("analytics:product:{}:revisits", product_id)).await;
-        self.sadd(&format!("analytics:product:{}:namoro_sessions", product_id), session_id).await;
+        self.incr(&format!("analytics:product:{}:revisits", product_id))
+            .await;
+        self.sadd(
+            &format!("analytics:product:{}:namoro_sessions", product_id),
+            session_id,
+        )
+        .await;
     }
 
     /// Verifica se sessão já visitou o produto (para detectar revisita)
@@ -130,7 +149,12 @@ impl AnalyticsService {
         session_id: &str,
         product_id: &str,
     ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(self.sismember(&format!("analytics:session:{}:products", session_id), product_id).await)
+        Ok(self
+            .sismember(
+                &format!("analytics:session:{}:products", session_id),
+                product_id,
+            )
+            .await)
     }
 
     /// Obtém contagem de views de um produto
@@ -139,7 +163,9 @@ impl AnalyticsService {
         product_id: &str,
     ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
         let map = self.counters.lock().await;
-        Ok(*map.get(&format!("analytics:product:{}:views", product_id)).unwrap_or(&0))
+        Ok(*map
+            .get(&format!("analytics:product:{}:views", product_id))
+            .unwrap_or(&0))
     }
 
     /// Obtém visitantes únicos de um produto (aproximado via set cardinality)
@@ -147,7 +173,9 @@ impl AnalyticsService {
         &self,
         product_id: &str,
     ) -> Result<i64, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(self.scard(&format!("analytics:product:{}:visitors", product_id)).await)
+        Ok(self
+            .scard(&format!("analytics:product:{}:visitors", product_id))
+            .await)
     }
 
     /// Flush: move dados quentes do cache para Sled (persistência)
@@ -167,10 +195,7 @@ impl AnalyticsService {
         tree.insert(batch_key.as_bytes(), batch_json)?;
         tree.flush()?;
 
-        tracing::info!(
-            events_flushed = count,
-            "Analytics flush to Sled completed"
-        );
+        tracing::info!(events_flushed = count, "Analytics flush to Sled completed");
 
         Ok(count)
     }
@@ -200,7 +225,9 @@ impl AnalyticsService {
     ) -> Result<f64, Box<dyn std::error::Error + Send + Sync>> {
         let mut score: f64 = 0.0;
 
-        let products_visited = self.scard(&format!("analytics:session:{}:products", session_id)).await;
+        let products_visited = self
+            .scard(&format!("analytics:session:{}:products", session_id))
+            .await;
         score += products_visited as f64;
 
         let stream = self.event_stream.lock().await;

@@ -217,10 +217,6 @@ impl Queue {
     }
 
     /// Process worker task handles and handle any errors
-    ///
-    /// # Errors
-    /// This function will return an error if a worker task fails to join
-    #[allow(dead_code)]
     async fn process_worker_handles(handles: Vec<tokio::task::JoinHandle<()>>) -> Result<()> {
         let handle_count = handles.len();
         tracing::debug!(worker_count = handle_count, "Processing worker handles");

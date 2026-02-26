@@ -106,7 +106,10 @@ impl Model {
         db: &DatabaseConnection,
         params: &CreateProductParams,
     ) -> ModelResult<Self> {
-        let base_slug = params.slug.clone().unwrap_or_else(|| slugify(&params.title));
+        let base_slug = params
+            .slug
+            .clone()
+            .unwrap_or_else(|| slugify(&params.title));
         let slug = Self::generate_unique_slug(db, &base_slug, None).await?;
         let handle = params.handle.clone().unwrap_or_else(|| slug.clone());
 
@@ -118,16 +121,21 @@ impl Model {
             handle: ActiveValue::set(handle),
             status: ActiveValue::set("draft".to_string()),
             product_type: ActiveValue::set(
-                params.product_type.clone().unwrap_or_else(|| "physical".to_string()),
+                params
+                    .product_type
+                    .clone()
+                    .unwrap_or_else(|| "physical".to_string()),
             ),
             category_id: ActiveValue::set(params.category_id),
             tags: ActiveValue::set(serde_json::json!(params.tags.clone().unwrap_or_default())),
-            metadata: ActiveValue::set(
-                params.metadata.clone().unwrap_or(serde_json::json!({})),
-            ),
+            metadata: ActiveValue::set(params.metadata.clone().unwrap_or(serde_json::json!({}))),
             seo_title: ActiveValue::set(params.seo_title.clone()),
             seo_description: ActiveValue::set(params.seo_description.clone()),
-            weight: ActiveValue::set(params.weight.map(|w| rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default())),
+            weight: ActiveValue::set(
+                params
+                    .weight
+                    .map(|w| rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default()),
+            ),
             featured: ActiveValue::set(params.featured.unwrap_or(false)),
             ..Default::default()
         };
@@ -152,8 +160,7 @@ impl Model {
     ) -> ModelResult<Vec<Self>> {
         let limit = params.limit.unwrap_or(20).min(100);
 
-        let mut query = Entity::find()
-            .filter(products::Column::DeletedAt.is_null());
+        let mut query = Entity::find().filter(products::Column::DeletedAt.is_null());
 
         if let Some(ref status) = params.status {
             query = query.filter(products::Column::Status.eq(status.as_str()));
@@ -188,9 +195,7 @@ impl Model {
     }
 
     /// Lista todos os produtos sem paginação (para exportação CSV)
-    pub async fn list_all_for_store(
-        db: &DatabaseConnection,
-    ) -> ModelResult<Vec<Self>> {
+    pub async fn list_all_for_store(db: &DatabaseConnection) -> ModelResult<Vec<Self>> {
         let products = Entity::find()
             .filter(products::Column::DeletedAt.is_null())
             .order_by_asc(products::Column::Id)

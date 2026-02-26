@@ -1,6 +1,9 @@
 use async_trait::async_trait;
 use axum::Router as AxumRouter;
-use loco_rs::{app::{AppContext, Initializer}, Result};
+use loco_rs::{
+    app::{AppContext, Initializer},
+    Result,
+};
 use std::{env, fs, path::PathBuf};
 
 use crate::services::asaas::AsaasClient;
@@ -26,11 +29,15 @@ impl Initializer for AsaasWebhooksInitializer {
                 let base = env::var("ASAAS_BASE_URL")
                     .unwrap_or_else(|_| "https://api-sandbox.asaas.com/v3".to_string());
                 // include webhook auth token if provided or use default from env var ASAAS_WEBHOOK_AUTH_TOKEN
-                let webhook_auth = env::var("ASAAS_WEBHOOK_AUTH_TOKEN").unwrap_or_else(|_| "77aab49d-ed15-45d1-8633-a322441f99bd".to_string());
-                let webhook_email = env::var("ASAAS_WEBHOOK_EMAIL").unwrap_or_else(|_| "clausemberg@yahoo.com.br".to_string());
+                let webhook_auth = env::var("ASAAS_WEBHOOK_AUTH_TOKEN")
+                    .unwrap_or_else(|_| "77aab49d-ed15-45d1-8633-a322441f99bd".to_string());
+                let webhook_email = env::var("ASAAS_WEBHOOK_EMAIL")
+                    .unwrap_or_else(|_| "clausemberg@yahoo.com.br".to_string());
                 let content = format!("ASAAS_API_KEY='{}'\nASAAS_BASE_URL='{}'\nASAAS_WEBHOOK_AUTH_TOKEN='{}'\nASAAS_WEBHOOK_EMAIL='{}'\n", token, base, webhook_auth, webhook_email);
                 let _ = fs::write(&env_path, content);
-                println!("Wrote .env with ASAAS_API_KEY and ASAAS_WEBHOOK_AUTH_TOKEN (values hidden)");
+                println!(
+                    "Wrote .env with ASAAS_API_KEY and ASAAS_WEBHOOK_AUTH_TOKEN (values hidden)"
+                );
             }
         }
 
@@ -51,7 +58,10 @@ impl Initializer for AsaasWebhooksInitializer {
         let client = match AsaasClient::from_env() {
             Ok(c) => c,
             Err(e) => {
-                println!("AsaasClient init failed: {} — skipping webhook registration", e);
+                println!(
+                    "AsaasClient init failed: {} — skipping webhook registration",
+                    e
+                );
                 return Ok(router);
             }
         };
@@ -59,12 +69,19 @@ impl Initializer for AsaasWebhooksInitializer {
         let existing = match client.list_webhooks().await {
             Ok(j) => j,
             Err(e) => {
-                println!("Asaas list_webhooks failed: {} — skipping webhook registration", e);
+                println!(
+                    "Asaas list_webhooks failed: {} — skipping webhook registration",
+                    e
+                );
                 return Ok(router);
             }
         };
 
-        let data = existing.get("data").and_then(|d| d.as_array()).cloned().unwrap_or_default();
+        let data = existing
+            .get("data")
+            .and_then(|d| d.as_array())
+            .cloned()
+            .unwrap_or_default();
 
         let required = vec!["PAYMENT_CONFIRMED", "CHECKOUT_CREATED"];
 
@@ -96,11 +113,22 @@ impl Initializer for AsaasWebhooksInitializer {
             }
 
             if !found {
-                let name = format!("auto_{}_{}", ev.to_lowercase(), chrono::Utc::now().timestamp());
+                let name = format!(
+                    "auto_{}_{}",
+                    ev.to_lowercase(),
+                    chrono::Utc::now().timestamp()
+                );
                 let email = env::var("ASAAS_WEBHOOK_EMAIL")
                     .unwrap_or_else(|_| "clausemberg@yahoo.com.br".to_string());
                 match client
-                    .create_webhook(&name, &webhook_url, &[ev], webhook_auth_token.as_deref(), &email, "false")
+                    .create_webhook(
+                        &name,
+                        &webhook_url,
+                        &[ev],
+                        webhook_auth_token.as_deref(),
+                        &email,
+                        "false",
+                    )
                     .await
                 {
                     Ok(_) => println!("Created Asaas webhook for event {}", ev),

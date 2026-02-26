@@ -1,14 +1,10 @@
 use chrono::{Duration, Utc};
 use loco_rs::prelude::*;
-use sea_orm::{
-    ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect,
-};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, QuerySelect};
 use serde::Serialize;
 use std::collections::HashMap;
 
-use crate::models::_entities::{
-    customers, orders, products,
-};
+use crate::models::_entities::{customers, orders, products};
 
 /// Resumo de um pedido recente para o dashboard
 #[derive(Debug, Serialize)]
@@ -117,7 +113,9 @@ pub async fn stats(State(ctx): State<AppContext>) -> Result<Response> {
     let mut revenue_chart: Vec<RevenuePoint> = (0..30)
         .rev()
         .map(|i| {
-            let date = (Utc::now() - Duration::days(i)).format("%Y-%m-%d").to_string();
+            let date = (Utc::now() - Duration::days(i))
+                .format("%Y-%m-%d")
+                .to_string();
             let (rev, cnt) = daily.get(&date).copied().unwrap_or((0, 0));
             RevenuePoint {
                 date,

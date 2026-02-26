@@ -43,7 +43,7 @@ pub fn new(ident: Option<&str>) -> Middleware {
                     Ok(val) => Some(val),
                     Err(e) => {
                         tracing::info!(
-                            error = format!("{}", e),
+                            error = e.to_string(),
                             val = ident,
                             "could not set custom ident header"
                         );

@@ -2,8 +2,8 @@ use sea_orm::QueryOrder;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub use super::_entities::product_variants::{self, ActiveModel, Entity, Model};
 pub use super::_entities::prices;
+pub use super::_entities::product_variants::{self, ActiveModel, Entity, Model};
 
 use loco_rs::prelude::*;
 
@@ -44,12 +44,17 @@ impl Model {
             sku: ActiveValue::set(params.sku.clone()),
             title: ActiveValue::set(params.title.clone()),
             option_values: ActiveValue::set(
-                params.option_values.clone().unwrap_or(serde_json::json!({})),
+                params
+                    .option_values
+                    .clone()
+                    .unwrap_or(serde_json::json!({})),
             ),
             inventory_quantity: ActiveValue::set(params.inventory_quantity.unwrap_or(0)),
             allow_backorder: ActiveValue::set(params.allow_backorder.unwrap_or(false)),
             weight: ActiveValue::set(
-                params.weight.map(|w| rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default()),
+                params
+                    .weight
+                    .map(|w| rust_decimal::Decimal::from_f64_retain(w).unwrap_or_default()),
             ),
             dimensions: ActiveValue::set(None),
             sort_order: ActiveValue::set(params.sort_order.unwrap_or(0)),
@@ -78,7 +83,9 @@ impl Model {
             pid: ActiveValue::set(Uuid::new_v4()),
             variant_id: ActiveValue::set(variant_id),
             amount: ActiveValue::set(params.amount),
-            currency: ActiveValue::set(params.currency.clone().unwrap_or_else(|| "BRL".to_string())),
+            currency: ActiveValue::set(
+                params.currency.clone().unwrap_or_else(|| "BRL".to_string()),
+            ),
             region: ActiveValue::set(params.region.clone()),
             min_quantity: ActiveValue::set(params.min_quantity.unwrap_or(1)),
             max_quantity: ActiveValue::set(params.max_quantity),

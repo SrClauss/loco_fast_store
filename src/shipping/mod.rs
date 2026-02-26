@@ -115,10 +115,10 @@ pub enum ShippingError {
 impl std::fmt::Display for ShippingError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::NotConfigured(m)     => write!(f, "Provider não configurado: {}", m),
-            Self::Network(m)           => write!(f, "Erro de comunicação com o provider: {}", m),
-            Self::Parse(m)             => write!(f, "Resposta inesperada do provider: {}", m),
-            Self::UnsupportedCarrier(m)=> write!(f, "Carrier não suportado: {}", m),
+            Self::NotConfigured(m) => write!(f, "Provider não configurado: {}", m),
+            Self::Network(m) => write!(f, "Erro de comunicação com o provider: {}", m),
+            Self::Parse(m) => write!(f, "Resposta inesperada do provider: {}", m),
+            Self::UnsupportedCarrier(m) => write!(f, "Carrier não suportado: {}", m),
         }
     }
 }

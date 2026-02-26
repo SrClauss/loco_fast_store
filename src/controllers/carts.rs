@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use crate::{
     dto::{
-        entities::{CartResponse, CartItemResponse},
+        entities::{CartItemResponse, CartResponse},
         response::ApiResponse,
     },
     models::{
@@ -33,7 +33,8 @@ async fn get_or_create(
     };
 
     let items = CartModel::get_items(&ctx.db, cart.id).await?;
-    let item_responses: Vec<CartItemResponse> = items.into_iter().map(CartItemResponse::from).collect();
+    let item_responses: Vec<CartItemResponse> =
+        items.into_iter().map(CartItemResponse::from).collect();
     let mut response = CartResponse::from(cart);
     response.items = Some(item_responses);
 
@@ -42,13 +43,11 @@ async fn get_or_create(
 
 /// GET /api/v1/carts/:pid - Busca carrinho por PID
 #[debug_handler]
-async fn get_one(
-    State(ctx): State<AppContext>,
-    Path(pid): Path<Uuid>,
-) -> Result<Response> {
+async fn get_one(State(ctx): State<AppContext>, Path(pid): Path<Uuid>) -> Result<Response> {
     let cart = CartModel::find_by_pid(&ctx.db, &pid).await?;
     let items = CartModel::get_items(&ctx.db, cart.id).await?;
-    let item_responses: Vec<CartItemResponse> = items.into_iter().map(CartItemResponse::from).collect();
+    let item_responses: Vec<CartItemResponse> =
+        items.into_iter().map(CartItemResponse::from).collect();
     let mut response = CartResponse::from(cart);
     response.items = Some(item_responses);
     format::json(ApiResponse::success(response))
@@ -64,16 +63,18 @@ async fn add_item(
     let cart = CartModel::find_by_pid(&ctx.db, &pid).await?;
 
     // Busca preço da variante
-    let price = VariantModel::get_active_price(&ctx.db, params.variant_id, &cart.currency, params.quantity)
-        .await
-        .map(|p| p.amount)
-        .unwrap_or(0);
+    let price =
+        VariantModel::get_active_price(&ctx.db, params.variant_id, &cart.currency, params.quantity)
+            .await
+            .map(|p| p.amount)
+            .unwrap_or(0);
 
     CartModel::add_item(&ctx.db, cart.id, params.variant_id, params.quantity, price).await?;
     let cart = CartModel::recalculate_totals(&ctx.db, cart.id).await?;
 
     let items = CartModel::get_items(&ctx.db, cart.id).await?;
-    let item_responses: Vec<CartItemResponse> = items.into_iter().map(CartItemResponse::from).collect();
+    let item_responses: Vec<CartItemResponse> =
+        items.into_iter().map(CartItemResponse::from).collect();
     let mut response = CartResponse::from(cart);
     response.items = Some(item_responses);
     format::json(ApiResponse::success(response))
@@ -96,7 +97,8 @@ async fn update_item(
 
     let cart = CartModel::recalculate_totals(&ctx.db, cart.id).await?;
     let items = CartModel::get_items(&ctx.db, cart.id).await?;
-    let item_responses: Vec<CartItemResponse> = items.into_iter().map(CartItemResponse::from).collect();
+    let item_responses: Vec<CartItemResponse> =
+        items.into_iter().map(CartItemResponse::from).collect();
     let mut response = CartResponse::from(cart);
     response.items = Some(item_responses);
     format::json(ApiResponse::success(response))
@@ -113,7 +115,8 @@ async fn remove_item(
     let cart = CartModel::recalculate_totals(&ctx.db, cart.id).await?;
 
     let items = CartModel::get_items(&ctx.db, cart.id).await?;
-    let item_responses: Vec<CartItemResponse> = items.into_iter().map(CartItemResponse::from).collect();
+    let item_responses: Vec<CartItemResponse> =
+        items.into_iter().map(CartItemResponse::from).collect();
     let mut response = CartResponse::from(cart);
     response.items = Some(item_responses);
     format::json(ApiResponse::success(response))

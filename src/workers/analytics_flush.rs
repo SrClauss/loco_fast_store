@@ -18,7 +18,8 @@ impl BackgroundWorker<AnalyticsFlushWorkerArgs> for AnalyticsFlushWorker {
     }
 
     async fn perform(&self, _args: AnalyticsFlushWorkerArgs) -> Result<()> {
-        let sled_path = std::env::var("SLED_PATH").unwrap_or_else(|_| "./data/analytics_sled".to_string());
+        let sled_path =
+            std::env::var("SLED_PATH").unwrap_or_else(|_| "./data/analytics_sled".to_string());
 
         let analytics = AnalyticsService::new(&sled_path)
             .map_err(|e| loco_rs::Error::Message(format!("Failed to init analytics: {}", e)))?;
@@ -28,10 +29,7 @@ impl BackgroundWorker<AnalyticsFlushWorkerArgs> for AnalyticsFlushWorker {
             .await
             .map_err(|e| loco_rs::Error::Message(format!("Failed to flush analytics: {}", e)))?;
 
-        tracing::info!(
-            events_flushed = count,
-            "Analytics flush worker completed"
-        );
+        tracing::info!(events_flushed = count, "Analytics flush worker completed");
 
         Ok(())
     }

@@ -38,5 +38,7 @@ pub enum Relation {
 }
 
 impl Related<super::orders::Entity> for Entity {
-    fn to() -> RelationDef { Relation::Order.def() }
+    fn to() -> RelationDef {
+        Relation::Order.def()
+    }
 }

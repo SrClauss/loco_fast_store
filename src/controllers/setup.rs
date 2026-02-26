@@ -1,17 +1,12 @@
-use crate::{
-    models::{
-        _entities::users,
-        users::RegisterParams,
-    },
-};
+use crate::models::{_entities::users, users::RegisterParams};
 use axum::{
-    response::{Html, IntoResponse, Redirect},
     extract::State,
     http::Method,
+    response::{Html, IntoResponse, Redirect},
 };
 use loco_rs::prelude::*;
-use serde::{Deserialize, Serialize};
 use sea_orm::{EntityTrait, PaginatorTrait};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct SetupParams {
@@ -29,19 +24,14 @@ pub struct SetupResponse {
 
 /// Verifica se já existe algum administrador no sistema
 pub async fn has_admin(db: &DatabaseConnection) -> ModelResult<bool> {
-    let count = users::Entity::find()
-        .paginate(db, 1)
-        .num_items()
-        .await?;
-    
+    let count = users::Entity::find().paginate(db, 1).num_items().await?;
+
     Ok(count > 0)
 }
 
 /// Exibe a página de setup inicial (GET /admin/setup)
 #[debug_handler]
-pub async fn show_setup(
-    State(ctx): State<AppContext>,
-) -> Result<impl IntoResponse> {
+pub async fn show_setup(State(ctx): State<AppContext>) -> Result<impl IntoResponse> {
     // Verificar se já existe admin
     if has_admin(&ctx.db).await? {
         return Ok(Redirect::to("/admin/login").into_response());
@@ -50,7 +40,7 @@ pub async fn show_setup(
     // Renderiza o template HTML diretamente
     let html = std::fs::read_to_string("assets/views/admin/setup.html")
         .map_err(|_| Error::InternalServerError)?;
-    
+
     Ok(Html(html).into_response())
 }
 
@@ -138,13 +128,11 @@ pub async fn check_setup_required(
     next: axum::middleware::Next,
 ) -> Result<impl IntoResponse> {
     let path = request.uri().path();
-    
+
     // Não redirecionar se já estiver na página de setup, acessando estáticos
     // ou fazendo qualquer requisição para a API; queremos que endpoints JSON
     // continuem retornando erro em vez de redirecionar com HTML.
-    if path.starts_with("/admin/setup") ||
-       path.starts_with("/static") ||
-       path.starts_with("/api") {
+    if path.starts_with("/admin/setup") || path.starts_with("/static") || path.starts_with("/api") {
         return Ok(next.run(request).await);
     }
 

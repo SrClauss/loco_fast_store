@@ -353,7 +353,7 @@ async fn dequeue(client: &SqlitePool, worker_tags: &[String]) -> Result<Option<J
     // Add tag parameters to the query with proper JSON wildcard format
     for tag in worker_tags {
         // Format tag for JSON string search: each tag needs to be in format "%\"tagname\"%"
-        db_query = db_query.bind(format!("%\"{tag}\"%"));
+        db_query = db_query.bind(format!("%\"{}\"%", tag));
     }
 
     let row = db_query

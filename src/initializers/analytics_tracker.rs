@@ -3,12 +3,7 @@
 ///
 /// Implementado como initializer do Loco que adiciona um layer ao Router
 use async_trait::async_trait;
-use axum::{
-    extract::Request,
-    middleware::Next,
-    response::Response,
-    Router as AxumRouter,
-};
+use axum::{extract::Request, middleware::Next, response::Response, Router as AxumRouter};
 use loco_rs::{
     app::{AppContext, Initializer},
     Result,

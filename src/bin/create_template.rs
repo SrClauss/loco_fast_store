@@ -22,19 +22,15 @@
 //!   CartPage, CartDrawer, SearchBar, CustomerAuth, CustomerAccount,
 //!   CheckoutForm, WishlistPage, OrderDetail
 
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    process,
-};
+use std::{fs, path::PathBuf, process};
 
 // ── Argumentos ────────────────────────────────────────────────────────────────
 
 struct Args {
-    name:      String,
-    kind:      TemplateKind,
+    name: String,
+    kind: TemplateKind,
     component: Option<String>,
-    output:    Option<PathBuf>,
+    output: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,25 +43,17 @@ enum TemplateKind {
 impl TemplateKind {
     fn from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "store" | "loja"   => Some(Self::Store),
-            "admin"            => Some(Self::Admin),
+            "store" | "loja" => Some(Self::Store),
+            "admin" => Some(Self::Admin),
             "painel" | "panel" => Some(Self::Painel),
-            _                  => None,
-        }
-    }
-
-    fn label(&self) -> &'static str {
-        match self {
-            Self::Store  => "store",
-            Self::Admin  => "admin",
-            Self::Painel => "painel",
+            _ => None,
         }
     }
 
     fn default_output(&self) -> &'static str {
         match self {
-            Self::Store  => "assets/views/store",
-            Self::Admin  => "assets/views/admin",
+            Self::Store => "assets/views/store",
+            Self::Admin => "assets/views/admin",
             Self::Painel => "assets/views/painel",
         }
     }
@@ -75,11 +63,19 @@ impl TemplateKind {
 
 fn main() {
     let args = parse_args();
-    let dir  = args.output.clone().unwrap_or_else(|| PathBuf::from(args.kind.default_output()));
-    fs::create_dir_all(&dir).unwrap_or_else(|e| die(&format!("Não foi possível criar diretório {:?}: {}", dir, e)));
+    let dir = args
+        .output
+        .clone()
+        .unwrap_or_else(|| PathBuf::from(args.kind.default_output()));
+    fs::create_dir_all(&dir).unwrap_or_else(|e| {
+        die(&format!(
+            "Não foi possível criar diretório {:?}: {}",
+            dir, e
+        ))
+    });
 
     let filename = slug(&args.name) + ".html";
-    let dest     = dir.join(&filename);
+    let dest = dir.join(&filename);
 
     if dest.exists() {
         eprintln!("⚠️  Arquivo já existe: {}", dest.display());
@@ -88,12 +84,13 @@ fn main() {
     }
 
     let html = match args.kind {
-        TemplateKind::Store  => gen_store(&args),
-        TemplateKind::Admin  => gen_admin(&args),
+        TemplateKind::Store => gen_store(&args),
+        TemplateKind::Admin => gen_admin(&args),
         TemplateKind::Painel => gen_painel(&args),
     };
 
-    fs::write(&dest, html).unwrap_or_else(|e| die(&format!("Erro ao escrever {}: {}", dest.display(), e)));
+    fs::write(&dest, html)
+        .unwrap_or_else(|e| die(&format!("Erro ao escrever {}: {}", dest.display(), e)));
 
     println!("✅ Template criado: {}", dest.display());
     println!();
@@ -116,7 +113,7 @@ fn main() {
     }
     println!();
     println!("  Próximos passos:");
-    println!("  1. Edite {}",                 dest.display());
+    println!("  1. Edite {}", dest.display());
     println!("  2. Implemente o bloco content");
     println!("  3. Adicione a rota em src/controllers/");
 }
@@ -124,13 +121,14 @@ fn main() {
 // ── Geradores de HTML ─────────────────────────────────────────────────────────
 
 fn gen_store(args: &Args) -> String {
-    let title  = title_case(&args.name);
-    let slug   = slug(&args.name);
-    let comp   = args.component.as_deref().unwrap_or("ProductList");
+    let title = title_case(&args.name);
+    let slug = slug(&args.name);
+    let comp = args.component.as_deref().unwrap_or("ProductList");
     let comp_i = component_init(comp);
     let comp_hint = component_placeholder(comp);
 
-    format!(r#"{{% extends "store/layouts/base.html" %}}
+    format!(
+        r#"{{% extends "store/layouts/base.html" %}}
 {{% block title %}}{title}{{% endblock %}}
 
 {{#-
@@ -177,19 +175,20 @@ fn gen_store(args: &Args) -> String {
 </script>
 {{% endblock %}}
 "#,
-        title    = title,
-        slug     = slug,
-        comp     = comp,
-        comp_i   = comp_i,
+        title = title,
+        slug = slug,
+        comp = comp,
+        comp_i = comp_i,
         comp_hint = comp_hint,
     )
 }
 
 fn gen_admin(args: &Args) -> String {
     let title = title_case(&args.name);
-    let slug  = slug(&args.name);
+    let slug = slug(&args.name);
 
-    format!(r#"{{% extends "admin/layouts/base.html" %}}
+    format!(
+        r#"{{% extends "admin/layouts/base.html" %}}
 {{% block title %}}{title}{{% endblock %}}
 {{% block page_title %}}{title}{{% endblock %}}
 
@@ -243,15 +242,16 @@ function {slug}Data() {{
 {{% endblock %}}
 "#,
         title = title,
-        slug  = slug,
+        slug = slug,
     )
 }
 
 fn gen_painel(args: &Args) -> String {
     let title = title_case(&args.name);
-    let slug  = slug(&args.name);
+    let slug = slug(&args.name);
 
-    format!(r#"{{% extends "painel/layouts/base.html" %}}
+    format!(
+        r#"{{% extends "painel/layouts/base.html" %}}
 {{% block title %}}{title}{{% endblock %}}
 {{% block page_title %}}{title}{{% endblock %}}
 {{% set current_page = "{slug}" %}}
@@ -306,7 +306,7 @@ function {slug}Data() {{
 {{% endblock %}}
 "#,
         title = title,
-        slug  = slug,
+        slug = slug,
     )
 }
 
@@ -315,18 +315,18 @@ function {slug}Data() {{
 /// Retorna a chamada `x-data` certa para o componente.
 fn component_init(comp: &str) -> String {
     match comp {
-        "ProductDetail"    => "ProductDetail('{{ product.pid }}')".into(),
+        "ProductDetail" => "ProductDetail('{{ product.pid }}')".into(),
         "CollectionDetail" => "CollectionDetail('{{ collection.pid }}')".into(),
-        "OrderDetail"      => "OrderDetail('{{ order_pid }}')".into(),
-        "CustomerAuth"     => "CustomerAuth({ redirectOnLogin: '/minha-conta' })".into(),
-        "SearchBar"        => "SearchBar({ limit: 8 })".into(),
-        "CartPage"         => "CartPage()".into(),
-        "CartDrawer"       => "CartDrawer()".into(),
-        "CustomerAccount"  => "CustomerAccount()".into(),
-        "CheckoutForm"     => "CheckoutForm()".into(),
-        "WishlistPage"     => "WishlistPage()".into(),
-        "CategoryList"     => "CategoryList()".into(),
-        _                  => format!("ProductList({{ limit: 12 }})"),
+        "OrderDetail" => "OrderDetail('{{ order_pid }}')".into(),
+        "CustomerAuth" => "CustomerAuth({ redirectOnLogin: '/minha-conta' })".into(),
+        "SearchBar" => "SearchBar({ limit: 8 })".into(),
+        "CartPage" => "CartPage()".into(),
+        "CartDrawer" => "CartDrawer()".into(),
+        "CustomerAccount" => "CustomerAccount()".into(),
+        "CheckoutForm" => "CheckoutForm()".into(),
+        "WishlistPage" => "WishlistPage()".into(),
+        "CategoryList" => "CategoryList()".into(),
+        _ => "ProductList({ limit: 12 })".to_string(),
     }
 }
 
@@ -594,36 +594,64 @@ fn parse_args() -> Args {
         process::exit(0);
     }
 
-    let mut name      = None::<String>;
-    let mut kind      = None::<TemplateKind>;
+    let mut name = None::<String>;
+    let mut kind = None::<TemplateKind>;
     let mut component = None::<String>;
-    let mut output    = None::<PathBuf>;
+    let mut output = None::<PathBuf>;
 
     let mut i = 1usize;
     while i < raw.len() {
         match raw[i].as_str() {
-            "--name" | "-n" => { i += 1; name = raw.get(i).cloned(); }
+            "--name" | "-n" => {
+                i += 1;
+                name = raw.get(i).cloned();
+            }
             "--type" | "-t" => {
                 i += 1;
                 if let Some(v) = raw.get(i) {
-                    kind = TemplateKind::from_str(v).or_else(|| { eprintln!("Tipo inválido: {v}"); process::exit(1); });
+                    kind = TemplateKind::from_str(v).or_else(|| {
+                        eprintln!("Tipo inválido: {v}");
+                        process::exit(1);
+                    });
                 }
             }
-            "--component" | "-c" => { i += 1; component = raw.get(i).cloned(); }
-            "--output"    | "-o" => { i += 1; output = raw.get(i).map(PathBuf::from); }
-            other => { eprintln!("Argumento desconhecido: {other}"); print_help(); process::exit(1); }
+            "--component" | "-c" => {
+                i += 1;
+                component = raw.get(i).cloned();
+            }
+            "--output" | "-o" => {
+                i += 1;
+                output = raw.get(i).map(PathBuf::from);
+            }
+            other => {
+                eprintln!("Argumento desconhecido: {other}");
+                print_help();
+                process::exit(1);
+            }
         }
         i += 1;
     }
 
-    let name = name.unwrap_or_else(|| { eprintln!("--name é obrigatório"); process::exit(1); });
-    let kind = kind.unwrap_or_else(|| { eprintln!("--type é obrigatório (store|admin|painel)"); process::exit(1); });
+    let name = name.unwrap_or_else(|| {
+        eprintln!("--name é obrigatório");
+        process::exit(1);
+    });
+    let kind = kind.unwrap_or_else(|| {
+        eprintln!("--type é obrigatório (store|admin|painel)");
+        process::exit(1);
+    });
 
-    Args { name, kind, component, output }
+    Args {
+        name,
+        kind,
+        component,
+        output,
+    }
 }
 
 fn print_help() {
-    eprintln!(r#"
+    eprintln!(
+        r#"
 create-template — Gerador de páginas HTML para Loco Fast Store
 
 USO:
@@ -656,7 +684,8 @@ EXEMPLOS:
   cargo run --bin create-template -- -n relatorio      -t admin
   cargo run --bin create-template -- -n envios-lista   -t painel
   cargo run --bin create-template -- -n minha-pagina   -t store -o assets/views/minha-loja
-"#);
+"#
+    );
 }
 
 // ── Utilidades de string ──────────────────────────────────────────────────────
@@ -664,28 +693,28 @@ EXEMPLOS:
 /// Converte "busca-produtos" → "Busca Produtos"
 fn title_case(s: &str) -> String {
     s.split('-')
-     .map(|w| {
-         let mut c = w.chars();
-         match c.next() {
-             None    => String::new(),
-             Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-         }
-     })
-     .collect::<Vec<_>>()
-     .join(" ")
+        .map(|w| {
+            let mut c = w.chars();
+            match c.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 /// Converte "Busca Produtos" → "busca-produtos"
 fn slug(s: &str) -> String {
     s.to_lowercase()
-     .replace(' ', "-")
-     .chars()
-     .filter(|c| c.is_alphanumeric() || *c == '-')
-     .collect::<String>()
-     .split('-')
-     .filter(|p| !p.is_empty())
-     .collect::<Vec<_>>()
-     .join("-")
+        .replace(' ', "-")
+        .chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-')
+        .collect::<String>()
+        .split('-')
+        .filter(|p| !p.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 fn die(msg: &str) -> ! {

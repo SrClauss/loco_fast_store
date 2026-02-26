@@ -3,77 +3,137 @@ use loco_rs::prelude::*;
 /// Renders the admin dashboard page
 #[debug_handler]
 pub async fn dashboard_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/dashboard.html", serde_json::json!({"current_page": "dashboard"}))
+    format::render().view(
+        &v,
+        "admin/dashboard.html",
+        serde_json::json!({"current_page": "dashboard"}),
+    )
 }
 
 #[debug_handler]
 pub async fn products_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/products/list.html", serde_json::json!({"current_page": "products"}))
+    format::render().view(
+        &v,
+        "admin/products/list.html",
+        serde_json::json!({"current_page": "products"}),
+    )
 }
 
 #[debug_handler]
 pub async fn categories_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/categories/list.html", serde_json::json!({"current_page": "categories"}))
+    format::render().view(
+        &v,
+        "admin/categories/list.html",
+        serde_json::json!({"current_page": "categories"}),
+    )
 }
 
 #[debug_handler]
 pub async fn collections_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/collections/list.html", serde_json::json!({"current_page": "collections"}))
+    format::render().view(
+        &v,
+        "admin/collections/list.html",
+        serde_json::json!({"current_page": "collections"}),
+    )
 }
 
 #[debug_handler]
 pub async fn orders_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/orders/list.html", serde_json::json!({"current_page": "orders"}))
+    format::render().view(
+        &v,
+        "admin/orders/list.html",
+        serde_json::json!({"current_page": "orders"}),
+    )
 }
 
 #[debug_handler]
 pub async fn carts_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/carts/list.html", serde_json::json!({"current_page": "carts"}))
+    format::render().view(
+        &v,
+        "admin/carts/list.html",
+        serde_json::json!({"current_page": "carts"}),
+    )
 }
 
 #[debug_handler]
 pub async fn customers_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/customers/list.html", serde_json::json!({"current_page": "customers"}))
+    format::render().view(
+        &v,
+        "admin/customers/list.html",
+        serde_json::json!({"current_page": "customers"}),
+    )
 }
 
 #[debug_handler]
 pub async fn stores_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/stores/list.html", serde_json::json!({"current_page": "stores"}))
+    format::render().view(
+        &v,
+        "admin/stores/list.html",
+        serde_json::json!({"current_page": "stores"}),
+    )
 }
 
 #[debug_handler]
 pub async fn users_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/users/list.html", serde_json::json!({"current_page": "users"}))
+    format::render().view(
+        &v,
+        "admin/users/list.html",
+        serde_json::json!({"current_page": "users"}),
+    )
 }
 
 #[debug_handler]
 pub async fn analytics_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/analytics/index.html", serde_json::json!({"current_page": "analytics"}))
+    format::render().view(
+        &v,
+        "admin/analytics/index.html",
+        serde_json::json!({"current_page": "analytics"}),
+    )
 }
 
 #[debug_handler]
 pub async fn profile_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/profile/index.html", serde_json::json!({"current_page": "profile"}))
+    format::render().view(
+        &v,
+        "admin/profile/index.html",
+        serde_json::json!({"current_page": "profile"}),
+    )
 }
 
 #[debug_handler]
 pub async fn settings_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/settings/index.html", serde_json::json!({"current_page": "settings"}))
+    format::render().view(
+        &v,
+        "admin/settings/index.html",
+        serde_json::json!({"current_page": "settings"}),
+    )
 }
 
 #[debug_handler]
 pub async fn product_new_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/products/form.html", serde_json::json!({"current_page": "products", "product": null}))
+    format::render().view(
+        &v,
+        "admin/products/form.html",
+        serde_json::json!({"current_page": "products", "product": null}),
+    )
 }
 
 #[debug_handler]
 pub async fn product_edit_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/products/form.html", serde_json::json!({"current_page": "products", "product": null}))
+    format::render().view(
+        &v,
+        "admin/products/form.html",
+        serde_json::json!({"current_page": "products", "product": null}),
+    )
 }
 
 #[debug_handler]
 pub async fn product_import_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
-    format::render().view(&v, "admin/products/import.html", serde_json::json!({"current_page": "products"}))
+    format::render().view(
+        &v,
+        "admin/products/import.html",
+        serde_json::json!({"current_page": "products"}),
+    )
 }
 
 pub fn routes() -> Routes {

@@ -59,6 +59,9 @@ impl MiddlewareLayer for TimeOut {
     /// ensuring that requests exceeding the specified timeout duration will
     /// be interrupted.
     fn apply(&self, app: AXRouter<AppContext>) -> Result<AXRouter<AppContext>> {
-        Ok(app.layer(TimeoutLayer::new(Duration::from_millis(self.timeout))))
+        // updated for tower_http deprecation
+        // `with_status_code` takes a StatusCode then Duration
+        use axum::http::StatusCode;
+        Ok(app.layer(TimeoutLayer::with_status_code(StatusCode::REQUEST_TIMEOUT, Duration::from_millis(self.timeout))))
     }
 }

@@ -13,17 +13,18 @@ use loco_rs::{
 use migration::Migrator;
 use std::path::Path;
 
+// import users models for seeding and truncating
+use crate::models::users;
+
+use crate::controllers::admin_dashboard; // import admin dashboard API controller
+use crate::controllers::dashboard; // import dashboard controller
+use crate::controllers::{painel, painel_api};
 #[allow(unused_imports)]
 use crate::{
-    controllers, initializers, models::_entities::users, tasks,
-    workers::downloader::DownloadWorker,
-    workers::analytics_flush::AnalyticsFlushWorker,
-    workers::abandoned_cart::AbandonedCartWorker,
+    controllers, initializers, tasks, workers::abandoned_cart::AbandonedCartWorker,
+    workers::analytics_flush::AnalyticsFlushWorker, workers::downloader::DownloadWorker,
     workers::lead_scoring::LeadScoringWorker,
-};
-use crate::controllers::dashboard; // import dashboard controller
-use crate::controllers::admin_dashboard; // import admin dashboard API controller
-use crate::controllers::{painel, painel_api}; // import store collaborator panel
+}; // import store collaborator panel
 
 pub struct App;
 #[async_trait]
@@ -51,7 +52,7 @@ impl Hooks for App {
     }
 
     async fn initializers(_ctx: &AppContext) -> Result<Vec<Box<dyn Initializer>>> {
-            Ok(vec![
+        Ok(vec![
             Box::new(initializers::view_engine::ViewEngineInitializer),
             Box::new(initializers::analytics_tracker::AnalyticsTrackerInitializer),
             Box::new(initializers::asaas_webhooks::AsaasWebhooksInitializer),
@@ -75,10 +76,10 @@ impl Hooks for App {
             .add_route(controllers::carts::routes())
             .add_route(controllers::orders::routes())
             .add_route(controllers::customers::routes())
-                .add_route(controllers::collections::routes())
-                .add_route(controllers::payments::routes())
-                .add_route(painel::routes())
-                .add_route(painel_api::routes())
+            .add_route(controllers::collections::routes())
+            .add_route(controllers::payments::routes())
+            .add_route(painel::routes())
+            .add_route(painel_api::routes())
     }
 
     async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {

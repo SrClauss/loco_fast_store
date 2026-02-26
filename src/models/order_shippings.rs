@@ -35,7 +35,9 @@ impl Model {
         provider: Option<&str>,
         provider_data: Option<serde_json::Value>,
     ) -> ModelResult<Self> {
-        let estimated = params.estimated_delivery_at.as_deref()
+        let estimated = params
+            .estimated_delivery_at
+            .as_deref()
             .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
             .map(|dt| dt.with_timezone(&chrono::FixedOffset::east_opt(0).unwrap()));
 
@@ -67,7 +69,10 @@ impl Model {
     }
 
     /// Busca o envio ativo de um pedido
-    pub async fn find_by_order(db: &DatabaseConnection, order_id: i32) -> ModelResult<Option<Self>> {
+    pub async fn find_by_order(
+        db: &DatabaseConnection,
+        order_id: i32,
+    ) -> ModelResult<Option<Self>> {
         let shipping = Entity::find()
             .filter(order_shippings::Column::OrderId.eq(order_id))
             .order_by_desc(order_shippings::Column::CreatedAt)

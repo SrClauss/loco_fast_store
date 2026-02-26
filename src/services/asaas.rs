@@ -106,7 +106,10 @@ impl AsaasClient {
         let body = res.text().await.unwrap_or_default();
         tracing::debug!("list_webhooks response status={:?} body={}", status, body);
         if !status.is_success() {
-            return Err(Error::Message(format!("Asaas list_webhooks falhou: {}", body)));
+            return Err(Error::Message(format!(
+                "Asaas list_webhooks falhou: {}",
+                body
+            )));
         }
 
         serde_json::from_str(&body)
@@ -167,7 +170,10 @@ impl AsaasClient {
         let body = res.text().await.unwrap_or_default();
 
         if !status.is_success() {
-            return Err(Error::Message(format!("Asaas create_webhook falhou: {}", body)));
+            return Err(Error::Message(format!(
+                "Asaas create_webhook falhou: {}",
+                body
+            )));
         }
 
         serde_json::from_str(&body)
@@ -209,7 +215,10 @@ impl AsaasClient {
 
         if !res.status().is_success() {
             let body: String = res.text().await.unwrap_or_default();
-            return Err(Error::Message(format!("Asaas create_customer falhou: {}", body)));
+            return Err(Error::Message(format!(
+                "Asaas create_customer falhou: {}",
+                body
+            )));
         }
 
         res.json::<AsaasCustomer>()
@@ -263,7 +272,10 @@ impl AsaasClient {
 
         if !res.status().is_success() {
             let body: String = res.text().await.unwrap_or_default();
-            return Err(Error::Message(format!("Asaas create_payment falhou: {}", body)));
+            return Err(Error::Message(format!(
+                "Asaas create_payment falhou: {}",
+                body
+            )));
         }
 
         res.json::<AsaasPayment>()

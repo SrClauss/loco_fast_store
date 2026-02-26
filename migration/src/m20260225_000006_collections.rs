@@ -12,18 +12,63 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Collections::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Collections::Id).integer().not_null().auto_increment().primary_key())
-                    .col(ColumnDef::new(Collections::Pid).uuid().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(Collections::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Collections::Pid)
+                            .uuid()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Collections::StoreId).integer().not_null())
-                    .col(ColumnDef::new(Collections::Title).string_len(256).not_null())
+                    .col(
+                        ColumnDef::new(Collections::Title)
+                            .string_len(256)
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(Collections::Slug).string_len(256).not_null())
-                    .col(ColumnDef::new(Collections::Description).text().not_null().default(""))
+                    .col(
+                        ColumnDef::new(Collections::Description)
+                            .text()
+                            .not_null()
+                            .default(""),
+                    )
                     .col(ColumnDef::new(Collections::ImageUrl).string_len(1024))
-                    .col(ColumnDef::new(Collections::Published).boolean().not_null().default(false))
-                    .col(ColumnDef::new(Collections::SortOrder).integer().not_null().default(0))
-                    .col(ColumnDef::new(Collections::Metadata).json_binary().not_null().default("{}"))
-                    .col(ColumnDef::new(Collections::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-                    .col(ColumnDef::new(Collections::UpdatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+                    .col(
+                        ColumnDef::new(Collections::Published)
+                            .boolean()
+                            .not_null()
+                            .default(false),
+                    )
+                    .col(
+                        ColumnDef::new(Collections::SortOrder)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Collections::Metadata)
+                            .json_binary()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(Collections::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Collections::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .col(ColumnDef::new(Collections::DeletedAt).timestamp_with_time_zone())
                     .foreign_key(
                         ForeignKey::create()
@@ -54,11 +99,35 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(CollectionProducts::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(CollectionProducts::Id).integer().not_null().auto_increment().primary_key())
-                    .col(ColumnDef::new(CollectionProducts::CollectionId).integer().not_null())
-                    .col(ColumnDef::new(CollectionProducts::ProductId).integer().not_null())
-                    .col(ColumnDef::new(CollectionProducts::SortOrder).integer().not_null().default(0))
-                    .col(ColumnDef::new(CollectionProducts::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+                    .col(
+                        ColumnDef::new(CollectionProducts::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionProducts::CollectionId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionProducts::ProductId)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionProducts::SortOrder)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(CollectionProducts::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_colprod_collection")
@@ -93,8 +162,12 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.drop_table(Table::drop().table(CollectionProducts::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Collections::Table).to_owned()).await?;
+        manager
+            .drop_table(Table::drop().table(CollectionProducts::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Collections::Table).to_owned())
+            .await?;
         Ok(())
     }
 }

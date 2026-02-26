@@ -2,8 +2,8 @@ use sea_orm::QueryOrder;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub use super::_entities::collections::{self, ActiveModel, Entity, Model};
 pub use super::_entities::collection_products;
+pub use super::_entities::collections::{self, ActiveModel, Entity, Model};
 
 use loco_rs::prelude::*;
 
@@ -69,9 +69,7 @@ impl Model {
     }
 
     /// Lista coleções
-    pub async fn list_for_store(
-        db: &DatabaseConnection,
-    ) -> ModelResult<Vec<Self>> {
+    pub async fn list_for_store(db: &DatabaseConnection) -> ModelResult<Vec<Self>> {
         let collections = Entity::find()
             .filter(collections::Column::DeletedAt.is_null())
             .order_by_asc(collections::Column::Title)

@@ -2,8 +2,8 @@ use sea_orm::{QueryOrder, QuerySelect};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub use super::_entities::customers::{self, ActiveModel, Entity, Model};
 pub use super::_entities::addresses;
+pub use super::_entities::customers::{self, ActiveModel, Entity, Model};
 
 use loco_rs::prelude::*;
 
@@ -106,10 +106,7 @@ impl Model {
     }
 
     /// Busca por email
-    pub async fn find_by_email(
-        db: &DatabaseConnection,
-        email: &str,
-    ) -> ModelResult<Self> {
+    pub async fn find_by_email(db: &DatabaseConnection, email: &str) -> ModelResult<Self> {
         let customer = Entity::find()
             .filter(customers::Column::Email.eq(email))
             .filter(customers::Column::DeletedAt.is_null())
@@ -124,8 +121,7 @@ impl Model {
         cursor: Option<i32>,
         limit: u64,
     ) -> ModelResult<Vec<Self>> {
-        let mut query = Entity::find()
-            .filter(customers::Column::DeletedAt.is_null());
+        let mut query = Entity::find().filter(customers::Column::DeletedAt.is_null());
 
         if let Some(cursor_id) = cursor {
             query = query.filter(customers::Column::Id.gt(cursor_id));
@@ -156,9 +152,7 @@ impl Model {
             city: ActiveValue::set(params.city.clone()),
             state: ActiveValue::set(params.state.clone()),
             postal_code: ActiveValue::set(params.postal_code.clone()),
-            country: ActiveValue::set(
-                params.country.clone().unwrap_or_else(|| "BR".to_string()),
-            ),
+            country: ActiveValue::set(params.country.clone().unwrap_or_else(|| "BR".to_string())),
             phone: ActiveValue::set(params.phone.clone()),
             is_default_shipping: ActiveValue::set(params.is_default_shipping.unwrap_or(false)),
             is_default_billing: ActiveValue::set(params.is_default_billing.unwrap_or(false)),

@@ -9,18 +9,14 @@ impl MigrationTrait for Migration {
         // Cria tabela de backup antes de remover
         manager
             .get_connection()
-            .execute_unprepared(
-                "CREATE TABLE IF NOT EXISTS backup_stores AS SELECT * FROM stores",
-            )
+            .execute_unprepared("CREATE TABLE IF NOT EXISTS backup_stores AS SELECT * FROM stores")
             .await?;
 
         // Remove FK constraints e coluna store_id de store_collaborators
         #[cfg(not(feature = "sqlite"))]
         manager
             .get_connection()
-            .execute_unprepared(
-                "ALTER TABLE store_collaborators DROP CONSTRAINT fk_collab_store",
-            )
+            .execute_unprepared("ALTER TABLE store_collaborators DROP CONSTRAINT fk_collab_store")
             .await
             .ok();
 
@@ -56,9 +52,7 @@ impl MigrationTrait for Migration {
         #[cfg(not(feature = "sqlite"))]
         manager
             .get_connection()
-            .execute_unprepared(
-                "ALTER TABLE orders DROP CONSTRAINT IF EXISTS fk_orders_store",
-            )
+            .execute_unprepared("ALTER TABLE orders DROP CONSTRAINT IF EXISTS fk_orders_store")
             .await
             .ok();
 
@@ -75,9 +69,7 @@ impl MigrationTrait for Migration {
         #[cfg(not(feature = "sqlite"))]
         manager
             .get_connection()
-            .execute_unprepared(
-                "ALTER TABLE carts DROP CONSTRAINT IF EXISTS fk_carts_store",
-            )
+            .execute_unprepared("ALTER TABLE carts DROP CONSTRAINT IF EXISTS fk_carts_store")
             .await
             .ok();
 
@@ -132,9 +124,7 @@ impl MigrationTrait for Migration {
         #[cfg(not(feature = "sqlite"))]
         manager
             .get_connection()
-            .execute_unprepared(
-                "ALTER TABLE products DROP CONSTRAINT IF EXISTS fk_products_store",
-            )
+            .execute_unprepared("ALTER TABLE products DROP CONSTRAINT IF EXISTS fk_products_store")
             .await
             .ok();
 
@@ -170,9 +160,7 @@ impl MigrationTrait for Migration {
         #[cfg(not(feature = "sqlite"))]
         manager
             .get_connection()
-            .execute_unprepared(
-                "ALTER TABLE stores DROP CONSTRAINT IF EXISTS fk_stores_owner",
-            )
+            .execute_unprepared("ALTER TABLE stores DROP CONSTRAINT IF EXISTS fk_stores_owner")
             .await
             .ok();
 
@@ -191,18 +179,59 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Stores::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Stores::Id).integer().not_null().auto_increment().primary_key())
+                    .col(
+                        ColumnDef::new(Stores::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(Stores::Pid).uuid().not_null().unique_key())
-                    .col(ColumnDef::new(Stores::Slug).string_len(128).not_null().unique_key())
+                    .col(
+                        ColumnDef::new(Stores::Slug)
+                            .string_len(128)
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Stores::Name).string_len(256).not_null())
                     .col(ColumnDef::new(Stores::Domain).string_len(256))
-                    .col(ColumnDef::new(Stores::DefaultCurrency).string_len(3).not_null().default("BRL"))
-                    .col(ColumnDef::new(Stores::Config).json_binary().not_null().default("{}"))
-                    .col(ColumnDef::new(Stores::Status).string_len(20).not_null().default("draft"))
-                    .col(ColumnDef::new(Stores::Metadata).json_binary().not_null().default("{}"))
+                    .col(
+                        ColumnDef::new(Stores::DefaultCurrency)
+                            .string_len(3)
+                            .not_null()
+                            .default("BRL"),
+                    )
+                    .col(
+                        ColumnDef::new(Stores::Config)
+                            .json_binary()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(Stores::Status)
+                            .string_len(20)
+                            .not_null()
+                            .default("draft"),
+                    )
+                    .col(
+                        ColumnDef::new(Stores::Metadata)
+                            .json_binary()
+                            .not_null()
+                            .default("{}"),
+                    )
                     .col(ColumnDef::new(Stores::OwnerId).integer().not_null())
-                    .col(ColumnDef::new(Stores::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-                    .col(ColumnDef::new(Stores::UpdatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+                    .col(
+                        ColumnDef::new(Stores::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Stores::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .col(ColumnDef::new(Stores::DeletedAt).timestamp_with_time_zone())
                     .to_owned(),
             )

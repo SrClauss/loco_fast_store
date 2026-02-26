@@ -16,7 +16,11 @@ impl ActiveModelBehavior for ActiveModel {}
 impl Model {
     /// Roles com permissão de leitura de pedidos
     pub fn can_view_orders(&self) -> bool {
-        self.active && matches!(self.role.as_str(), "owner" | "admin" | "shipping" | "viewer")
+        self.active
+            && matches!(
+                self.role.as_str(),
+                "owner" | "admin" | "shipping" | "viewer"
+            )
     }
 
     /// Roles com permissão de atualizar status de pedidos/envios
@@ -46,9 +50,7 @@ impl Model {
     }
 
     /// Lista colaboradores ativos
-    pub async fn list_for_store(
-        db: &DatabaseConnection,
-    ) -> ModelResult<Vec<Self>> {
+    pub async fn list_for_store(db: &DatabaseConnection) -> ModelResult<Vec<Self>> {
         let collabs = Entity::find()
             .filter(store_collaborators::Column::Active.eq(true))
             .all(db)
@@ -57,10 +59,7 @@ impl Model {
     }
 
     /// Lista os vínculos de um usuário
-    pub async fn list_for_user(
-        db: &DatabaseConnection,
-        user_id: i32,
-    ) -> ModelResult<Vec<Self>> {
+    pub async fn list_for_user(db: &DatabaseConnection, user_id: i32) -> ModelResult<Vec<Self>> {
         let collabs = Entity::find()
             .filter(store_collaborators::Column::UserId.eq(user_id))
             .filter(store_collaborators::Column::Active.eq(true))
@@ -70,10 +69,7 @@ impl Model {
     }
 
     /// Busca o vínculo de um usuário
-    pub async fn find_for_user(
-        db: &DatabaseConnection,
-        user_id: i32,
-    ) -> ModelResult<Self> {
+    pub async fn find_for_user(db: &DatabaseConnection, user_id: i32) -> ModelResult<Self> {
         Entity::find()
             .filter(store_collaborators::Column::UserId.eq(user_id))
             .filter(store_collaborators::Column::Active.eq(true))
@@ -83,10 +79,7 @@ impl Model {
     }
 
     /// Desativa colaborador (soft-disable)
-    pub async fn deactivate(
-        db: &DatabaseConnection,
-        user_id: i32,
-    ) -> ModelResult<()> {
+    pub async fn deactivate(db: &DatabaseConnection, user_id: i32) -> ModelResult<()> {
         let collab = Self::find_for_user(db, user_id).await?;
         let mut active: store_collaborators::ActiveModel = collab.into();
         active.active = ActiveValue::set(false);

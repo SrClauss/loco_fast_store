@@ -1,7 +1,6 @@
 use loco_rs::prelude::*;
 use serde::{Deserialize, Serialize};
 
-
 use crate::models::carts::Model as CartModel;
 
 pub struct AbandonedCartWorker {
@@ -24,8 +23,7 @@ impl BackgroundWorker<AbandonedCartWorkerArgs> for AbandonedCartWorker {
         crate::env::load();
         let threshold = args.threshold_minutes.unwrap_or(60);
 
-        let abandoned_carts =
-            CartModel::find_abandoned(&self.ctx.db, threshold).await?;
+        let abandoned_carts = CartModel::find_abandoned(&self.ctx.db, threshold).await?;
 
         for cart in &abandoned_carts {
             tracing::info!(
@@ -40,9 +38,7 @@ impl BackgroundWorker<AbandonedCartWorkerArgs> for AbandonedCartWorker {
             let sled_path =
                 std::env::var("SLED_PATH").unwrap_or_else(|_| "./data/analytics_sled".to_string());
 
-            if let Ok(analytics) =
-                crate::services::analytics::AnalyticsService::new(&sled_path)
-            {
+            if let Ok(analytics) = crate::services::analytics::AnalyticsService::new(&sled_path) {
                 let event = crate::services::analytics::AnalyticsEvent {
                     session_id: cart.session_id.clone(),
                     customer_id: cart.customer_id,

@@ -1,9 +1,8 @@
-
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-pub use super::_entities::carts::{self, ActiveModel, Entity, Model};
 pub use super::_entities::cart_items;
+pub use super::_entities::carts::{self, ActiveModel, Entity, Model};
 
 use loco_rs::prelude::*;
 
@@ -143,7 +142,10 @@ impl Model {
     }
 
     /// Lista itens do carrinho
-    pub async fn get_items(db: &DatabaseConnection, cart_id: i32) -> ModelResult<Vec<cart_items::Model>> {
+    pub async fn get_items(
+        db: &DatabaseConnection,
+        cart_id: i32,
+    ) -> ModelResult<Vec<cart_items::Model>> {
         let items = cart_items::Entity::find()
             .filter(cart_items::Column::CartId.eq(cart_id))
             .all(db)

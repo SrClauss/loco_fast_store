@@ -2,18 +2,13 @@
 use loco_rs::prelude::*;
 use uuid::Uuid;
 
-use crate::models::{
-    _entities::users,
-    store_collaborators::Model as CollaboratorModel,
-};
+use crate::models::{_entities::users, store_collaborators::Model as CollaboratorModel};
 
 // ── Páginas HTML ─────────────────────────────────────────────────────────────
 
 /// GET /painel/login
 #[debug_handler]
-pub async fn login_page(
-    ViewEngine(v): ViewEngine<TeraView>,
-) -> Result<Response> {
+pub async fn login_page(ViewEngine(v): ViewEngine<TeraView>) -> Result<Response> {
     format::render().view(&v, "painel/login.html", serde_json::json!({}))
 }
 
@@ -38,18 +33,24 @@ pub async fn dashboard(
         .map_err(|_| loco_rs::Error::Unauthorized("Acesso negado".into()))?;
 
     if !collab.can_view_orders() {
-        return Err(loco_rs::Error::Unauthorized("Permissão insuficiente".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Permissão insuficiente".into(),
+        ));
     }
 
-    format::render().view(&v, "painel/dashboard.html", serde_json::json!({
-        "user": {
-            "name": user.name,
-            "email": user.email,
-            "role": collab.role,
-        },
-        "can_update": collab.can_update_orders(),
-        "can_manage": collab.can_manage_collaborators(),
-    }))
+    format::render().view(
+        &v,
+        "painel/dashboard.html",
+        serde_json::json!({
+            "user": {
+                "name": user.name,
+                "email": user.email,
+                "role": collab.role,
+            },
+            "can_update": collab.can_update_orders(),
+            "can_manage": collab.can_manage_collaborators(),
+        }),
+    )
 }
 
 /// GET /painel/pedidos  →  lista de pedidos
@@ -66,13 +67,19 @@ pub async fn orders_list(
         .map_err(|_| loco_rs::Error::Unauthorized("Acesso negado".into()))?;
 
     if !collab.can_view_orders() {
-        return Err(loco_rs::Error::Unauthorized("Permissão insuficiente".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Permissão insuficiente".into(),
+        ));
     }
 
-    format::render().view(&v, "painel/pedidos/list.html", serde_json::json!({
-        "user": { "name": user.name, "role": collab.role },
-        "can_update": collab.can_update_orders(),
-    }))
+    format::render().view(
+        &v,
+        "painel/pedidos/list.html",
+        serde_json::json!({
+            "user": { "name": user.name, "role": collab.role },
+            "can_update": collab.can_update_orders(),
+        }),
+    )
 }
 
 /// GET /painel/pedidos/:order_pid  →  detalhe + gestão de envio
@@ -90,14 +97,20 @@ pub async fn order_detail(
         .map_err(|_| loco_rs::Error::Unauthorized("Acesso negado".into()))?;
 
     if !collab.can_view_orders() {
-        return Err(loco_rs::Error::Unauthorized("Permissão insuficiente".into()));
+        return Err(loco_rs::Error::Unauthorized(
+            "Permissão insuficiente".into(),
+        ));
     }
 
-    format::render().view(&v, "painel/pedidos/detail.html", serde_json::json!({
-        "order_pid": order_pid.to_string(),
-        "user": { "name": user.name, "role": collab.role },
-        "can_update": collab.can_update_orders(),
-    }))
+    format::render().view(
+        &v,
+        "painel/pedidos/detail.html",
+        serde_json::json!({
+            "order_pid": order_pid.to_string(),
+            "user": { "name": user.name, "role": collab.role },
+            "can_update": collab.can_update_orders(),
+        }),
+    )
 }
 
 // ── Roteamento ────────────────────────────────────────────────────────────────

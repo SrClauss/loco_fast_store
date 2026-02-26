@@ -11,17 +11,43 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Categories::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Categories::Id).integer().not_null().auto_increment().primary_key())
-                    .col(ColumnDef::new(Categories::Pid).uuid().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(Categories::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(Categories::Pid)
+                            .uuid()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(Categories::StoreId).integer().not_null())
                     .col(ColumnDef::new(Categories::Name).string_len(256).not_null())
                     .col(ColumnDef::new(Categories::Slug).string_len(256).not_null())
                     .col(ColumnDef::new(Categories::Description).text())
                     .col(ColumnDef::new(Categories::ParentId).integer())
                     .col(ColumnDef::new(Categories::ImageUrl).string_len(512))
-                    .col(ColumnDef::new(Categories::SortOrder).integer().not_null().default(0))
-                    .col(ColumnDef::new(Categories::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-                    .col(ColumnDef::new(Categories::UpdatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+                    .col(
+                        ColumnDef::new(Categories::SortOrder)
+                            .integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Categories::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Categories::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .col(ColumnDef::new(Categories::DeletedAt).timestamp_with_time_zone())
                     .foreign_key(
                         ForeignKey::create()
@@ -57,7 +83,9 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.drop_table(Table::drop().table(Categories::Table).to_owned()).await
+        manager
+            .drop_table(Table::drop().table(Categories::Table).to_owned())
+            .await
     }
 }
 

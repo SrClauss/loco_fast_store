@@ -13,25 +13,81 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(Carts::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(Carts::Id).integer().not_null().auto_increment().primary_key())
+                    .col(
+                        ColumnDef::new(Carts::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
                     .col(ColumnDef::new(Carts::Pid).uuid().not_null().unique_key())
                     .col(ColumnDef::new(Carts::StoreId).integer().not_null())
                     .col(ColumnDef::new(Carts::CustomerId).integer())
                     .col(ColumnDef::new(Carts::SessionId).string_len(256).not_null())
-                    .col(ColumnDef::new(Carts::Status).string_len(20).not_null().default("active"))
+                    .col(
+                        ColumnDef::new(Carts::Status)
+                            .string_len(20)
+                            .not_null()
+                            .default("active"),
+                    )
                     .col(ColumnDef::new(Carts::Email).string_len(256))
-                    .col(ColumnDef::new(Carts::Currency).string_len(3).not_null().default("BRL"))
-                    .col(ColumnDef::new(Carts::Subtotal).big_integer().not_null().default(0))
-                    .col(ColumnDef::new(Carts::Tax).big_integer().not_null().default(0))
-                    .col(ColumnDef::new(Carts::Shipping).big_integer().not_null().default(0))
-                    .col(ColumnDef::new(Carts::Total).big_integer().not_null().default(0))
-                    .col(ColumnDef::new(Carts::Metadata).json_binary().not_null().default("{}"))
+                    .col(
+                        ColumnDef::new(Carts::Currency)
+                            .string_len(3)
+                            .not_null()
+                            .default("BRL"),
+                    )
+                    .col(
+                        ColumnDef::new(Carts::Subtotal)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Carts::Tax)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Carts::Shipping)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Carts::Total)
+                            .big_integer()
+                            .not_null()
+                            .default(0),
+                    )
+                    .col(
+                        ColumnDef::new(Carts::Metadata)
+                            .json_binary()
+                            .not_null()
+                            .default("{}"),
+                    )
                     .col(ColumnDef::new(Carts::ExpiresAt).timestamp_with_time_zone())
                     .col(ColumnDef::new(Carts::CompletedAt).timestamp_with_time_zone())
-                    .col(ColumnDef::new(Carts::LastActivityAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+                    .col(
+                        ColumnDef::new(Carts::LastActivityAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .col(ColumnDef::new(Carts::RecoveryToken).string_len(128))
-                    .col(ColumnDef::new(Carts::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-                    .col(ColumnDef::new(Carts::UpdatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+                    .col(
+                        ColumnDef::new(Carts::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(Carts::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_carts_store")
@@ -78,16 +134,51 @@ impl MigrationTrait for Migration {
                 Table::create()
                     .table(CartItems::Table)
                     .if_not_exists()
-                    .col(ColumnDef::new(CartItems::Id).integer().not_null().auto_increment().primary_key())
-                    .col(ColumnDef::new(CartItems::Pid).uuid().not_null().unique_key())
+                    .col(
+                        ColumnDef::new(CartItems::Id)
+                            .integer()
+                            .not_null()
+                            .auto_increment()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(CartItems::Pid)
+                            .uuid()
+                            .not_null()
+                            .unique_key(),
+                    )
                     .col(ColumnDef::new(CartItems::CartId).integer().not_null())
                     .col(ColumnDef::new(CartItems::VariantId).integer().not_null())
-                    .col(ColumnDef::new(CartItems::Quantity).integer().not_null().default(1))
-                    .col(ColumnDef::new(CartItems::UnitPrice).big_integer().not_null())
+                    .col(
+                        ColumnDef::new(CartItems::Quantity)
+                            .integer()
+                            .not_null()
+                            .default(1),
+                    )
+                    .col(
+                        ColumnDef::new(CartItems::UnitPrice)
+                            .big_integer()
+                            .not_null(),
+                    )
                     .col(ColumnDef::new(CartItems::Total).big_integer().not_null())
-                    .col(ColumnDef::new(CartItems::Metadata).json_binary().not_null().default("{}"))
-                    .col(ColumnDef::new(CartItems::CreatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
-                    .col(ColumnDef::new(CartItems::UpdatedAt).timestamp_with_time_zone().not_null().default(Expr::current_timestamp()))
+                    .col(
+                        ColumnDef::new(CartItems::Metadata)
+                            .json_binary()
+                            .not_null()
+                            .default("{}"),
+                    )
+                    .col(
+                        ColumnDef::new(CartItems::CreatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
+                    .col(
+                        ColumnDef::new(CartItems::UpdatedAt)
+                            .timestamp_with_time_zone()
+                            .not_null()
+                            .default(Expr::current_timestamp()),
+                    )
                     .foreign_key(
                         ForeignKey::create()
                             .name("fk_cart_items_cart")
@@ -120,8 +211,12 @@ impl MigrationTrait for Migration {
     }
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-        manager.drop_table(Table::drop().table(CartItems::Table).to_owned()).await?;
-        manager.drop_table(Table::drop().table(Carts::Table).to_owned()).await?;
+        manager
+            .drop_table(Table::drop().table(CartItems::Table).to_owned())
+            .await?;
+        manager
+            .drop_table(Table::drop().table(Carts::Table).to_owned())
+            .await?;
         Ok(())
     }
 }
