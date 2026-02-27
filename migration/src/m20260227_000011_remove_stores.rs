@@ -6,6 +6,13 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
+        // When using SQLite (e.g. in tests) we skip this destructive
+        // migration because dropping columns with foreign keys is
+        // not supported and the schema can remain unchanged for tests.
+        if cfg!(feature = "sqlite") {
+            return Ok(());
+        }
+
         // Cria tabela de backup antes de remover
         manager
             .get_connection()
