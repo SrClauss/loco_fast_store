@@ -28,6 +28,27 @@ impl From<crate::models::_entities::categories::Model> for CategoryResponse {
     }
 }
 
+// ─── Warehouse ───────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct WarehouseResponse {
+    pub pid: Uuid,
+    pub name: String,
+    pub latitude: f64,
+    pub longitude: f64,
+}
+
+impl From<crate::models::_entities::warehouses::Model> for WarehouseResponse {
+    fn from(m: crate::models::_entities::warehouses::Model) -> Self {
+        Self {
+            pid: m.pid,
+            name: m.name,
+            latitude: m.latitude,
+            longitude: m.longitude,
+        }
+    }
+}
+
 // ─── Product ─────────────────────────────────────────────
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -338,6 +359,48 @@ impl From<crate::models::_entities::addresses::Model> for AddressResponse {
             phone: m.phone,
             is_default_shipping: m.is_default_shipping,
             is_default_billing: m.is_default_billing,
+        }
+    }
+}
+
+// ─── Item ────────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ItemResponse {
+    pub pid: Uuid,
+    pub variant_id: i32,
+    pub batch: Option<String>,
+    pub expiration: Option<chrono::NaiveDate>,
+}
+
+impl From<crate::models::_entities::items::Model> for ItemResponse {
+    fn from(m: crate::models::_entities::items::Model) -> Self {
+        Self {
+            pid: m.pid,
+            variant_id: m.variant_id,
+            batch: m.batch,
+            expiration: m.expiration,
+        }
+    }
+}
+
+// ─── Stock ───────────────────────────────────────────────
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct StockResponse {
+    pub id: i32,
+    pub warehouse_id: i32,
+    pub item_id: i32,
+    pub quantity: i32,
+}
+
+impl From<crate::models::_entities::stocks::Model> for StockResponse {
+    fn from(m: crate::models::_entities::stocks::Model) -> Self {
+        Self {
+            id: m.id,
+            warehouse_id: m.warehouse_id,
+            item_id: m.item_id,
+            quantity: m.quantity,
         }
     }
 }

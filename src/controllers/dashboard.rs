@@ -143,7 +143,7 @@ pub fn routes() -> Routes {
         .add("/products", get(products_page))
         .add("/products/new", get(product_new_page))
         .add("/products/import", get(product_import_page))
-        .add("/products/:id/edit", get(product_edit_page))
+        .add("/products/{id}/edit", get(product_edit_page))
         .add("/categories", get(categories_page))
         .add("/collections", get(collections_page))
         .add("/orders", get(orders_page))

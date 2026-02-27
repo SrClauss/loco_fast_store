@@ -105,7 +105,7 @@ impl Model {
     pub async fn create_product(
         db: &DatabaseConnection,
         params: &CreateProductParams,
-    ) -> ModelResult<Self> {
+    ) -> loco_rs::Result<Self> {
         let base_slug = params
             .slug
             .clone()
@@ -140,6 +140,52 @@ impl Model {
             ..Default::default()
         };
         let product = product.insert(db).await?;
+
+        // create default variant + default item + stock in default warehouse
+        // the "default" variant has SKU equal to product slug and title same
+        let variant_params = crate::models::product_variants::CreateVariantParams {
+            sku: product.slug.clone(),
+            title: "Default".to_string(),
+            option_values: None,
+            inventory_quantity: None,
+            allow_backorder: None,
+            weight: None,
+            sort_order: None,
+            prices: None,
+        };
+        let variant = crate::models::product_variants::Model::create_variant(db, product.id, &variant_params).await?;
+
+        // create one default item for the variant
+        let item_params = crate::models::items::CreateItemParams {
+            variant_id: variant.id,
+            batch: Some("default".to_string()),
+            expiration: None,
+        };
+        let item = crate::models::items::Model::create_item(db, &item_params).await?;
+
+        // find or create default warehouse (first existing or new one)
+        let warehouse = {
+            let maybe = crate::models::warehouses::Entity::find()
+                .one(db)
+                .await?;
+            if let Some(w) = maybe {
+                w
+            } else {
+                crate::models::warehouses::Model::create_warehouse(db, &crate::models::warehouses::CreateWarehouseParams {
+                    name: "Default".to_string(),
+                    latitude: 0.0,
+                    longitude: 0.0,
+                }).await?
+            }
+        };
+
+        // set initial stock for item in default warehouse
+        crate::models::stocks::Model::set_stock(db, &crate::models::stocks::UpdateStockParams {
+            warehouse_id: warehouse.id,
+            item_id: item.id,
+            quantity: 0,
+        }).await?;
+
         Ok(product)
     }
 

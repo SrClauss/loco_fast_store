@@ -9,3 +9,7 @@ pub mod product_variants;
 pub mod products;
 pub mod store_collaborators;
 pub mod users;
+
+pub mod warehouses;
+pub mod items;
+pub mod stocks;

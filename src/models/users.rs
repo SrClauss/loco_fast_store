@@ -10,6 +10,41 @@ pub use super::_entities::users::{self, ActiveModel, Entity, Model};
 pub const MAGIC_LINK_LENGTH: i8 = 32;
 pub const MAGIC_LINK_EXPIRATION_MIN: i8 = 5;
 
+/// tipo de acesso do usuário
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum UserRole {
+    Admin,
+    Warehouse,
+    Store,
+}
+
+impl Default for UserRole {
+    fn default() -> Self {
+        UserRole::Store
+    }
+}
+
+impl ToString for UserRole {
+    fn to_string(&self) -> String {
+        match self {
+            UserRole::Admin => "admin".to_string(),
+            UserRole::Warehouse => "warehouse".to_string(),
+            UserRole::Store => "store".to_string(),
+        }
+    }
+}
+
+impl From<String> for UserRole {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "admin" => UserRole::Admin,
+            "warehouse" => UserRole::Warehouse,
+            _ => UserRole::Store,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LoginParams {
     pub email: String,
@@ -51,6 +86,7 @@ impl ActiveModelBehavior for super::_entities::users::ActiveModel {
             let mut this = self;
             this.pid = ActiveValue::Set(Uuid::new_v4());
             this.api_key = ActiveValue::Set(format!("lo-{}", Uuid::new_v4()));
+            this.role = ActiveValue::Set(UserRole::default().to_string());
             Ok(this)
         } else {
             Ok(self)
@@ -201,6 +237,23 @@ impl Model {
             .one(db)
             .await?;
         user.ok_or_else(|| ModelError::EntityNotFound)
+    }
+
+    /// access role helpers
+    pub fn role(&self) -> UserRole {
+        UserRole::from(self.role.clone())
+    }
+
+    pub fn is_admin(&self) -> bool {
+        self.role() == UserRole::Admin
+    }
+
+    pub fn is_warehouse_user(&self) -> bool {
+        self.role() == UserRole::Warehouse
+    }
+
+    pub fn is_store_user(&self) -> bool {
+        self.role() == UserRole::Store
     }
 
     /// Verifies whether the provided plain password matches the hashed password

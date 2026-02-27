@@ -24,7 +24,8 @@ async fn create(
     State(ctx): State<AppContext>,
     Json(params): Json<CreateProductParams>,
 ) -> Result<Response> {
-    let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    crate::controllers::guards::ensure_admin(&user).await?;
     let product = crate::models::products::Model::create_product(&ctx.db, &params).await?;
     format::json(ApiResponse::success(ProductResponse::from(product)))
 }
@@ -77,7 +78,8 @@ async fn update(
     Path(pid): Path<Uuid>,
     Json(params): Json<UpdateProductParams>,
 ) -> Result<Response> {
-    let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    crate::controllers::guards::ensure_admin(&user).await?;
     let product = crate::models::products::Model::find_by_pid(&ctx.db, &pid).await?;
 
     let mut active: crate::models::_entities::products::ActiveModel = product.into();
@@ -120,7 +122,8 @@ async fn remove(
     State(ctx): State<AppContext>,
     Path(pid): Path<Uuid>,
 ) -> Result<Response> {
-    let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    crate::controllers::guards::ensure_admin(&user).await?;
     let product = crate::models::products::Model::find_by_pid(&ctx.db, &pid).await?;
 
     let mut active: crate::models::_entities::products::ActiveModel = product.into();
@@ -138,7 +141,8 @@ async fn create_variant(
     Path(pid): Path<Uuid>,
     Json(params): Json<CreateVariantParams>,
 ) -> Result<Response> {
-    let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    crate::controllers::guards::ensure_admin(&user).await?;
     let product = crate::models::products::Model::find_by_pid(&ctx.db, &pid).await?;
     let variant = VariantModel::create_variant(&ctx.db, product.id, &params).await?;
     format::json(ApiResponse::success(VariantResponse::from(variant)))

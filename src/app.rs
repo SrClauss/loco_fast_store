@@ -11,6 +11,7 @@ use loco_rs::{
     Result,
 };
 use migration::Migrator;
+use sea_orm::{EntityTrait, PaginatorTrait};
 use std::path::Path;
 
 // import users models for seeding and truncating
@@ -73,6 +74,9 @@ impl Hooks for App {
             .add_route(controllers::customers::admin_routes())
             .add_route(controllers::products::routes())
             .add_route(controllers::categories::routes())
+            .add_route(controllers::warehouses::routes())
+            .add_route(controllers::items::routes())
+            .add_route(controllers::stocks::routes())
             .add_route(controllers::carts::routes())
             .add_route(controllers::orders::routes())
             .add_route(controllers::customers::routes())
@@ -101,6 +105,21 @@ impl Hooks for App {
     async fn seed(ctx: &AppContext, base: &Path) -> Result<()> {
         db::seed::<users::ActiveModel>(&ctx.db, &base.join("users.yaml").display().to_string())
             .await?;
+        // ensure default warehouse exists
+        let _ = crate::models::warehouses::Entity::find()
+            .one(&ctx.db)
+            .await?;
+        if crate::models::warehouses::Entity::find().count(&ctx.db).await? == 0 {
+            crate::models::warehouses::Model::create_warehouse(
+                &ctx.db,
+                &crate::models::warehouses::CreateWarehouseParams {
+                    name: "Default".to_string(),
+                    latitude: 0.0,
+                    longitude: 0.0,
+                },
+            )
+            .await?;
+        }
         Ok(())
     }
 }
